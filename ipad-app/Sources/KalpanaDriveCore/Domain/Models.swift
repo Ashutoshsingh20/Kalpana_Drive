@@ -3,6 +3,7 @@ import Foundation
 public struct Coordinate: Codable, Equatable, Sendable {
     public let latitude: Double
     public let longitude: Double
+
     public init(latitude: Double, longitude: Double) {
         self.latitude = latitude
         self.longitude = longitude
@@ -33,6 +34,20 @@ public struct RouteSnapshot: Codable, Equatable, Sendable {
     public var distanceRemainingMetres: Double
     public var expectedArrival: Date
     public var isActive: Bool
+
+    public init(
+        destination: Destination,
+        nextInstruction: String,
+        distanceRemainingMetres: Double,
+        expectedArrival: Date,
+        isActive: Bool
+    ) {
+        self.destination = destination
+        self.nextInstruction = nextInstruction
+        self.distanceRemainingMetres = distanceRemainingMetres
+        self.expectedArrival = expectedArrival
+        self.isActive = isActive
+    }
 }
 
 public struct MediaSnapshot: Codable, Equatable, Sendable {
@@ -49,9 +64,25 @@ public struct MediaSnapshot: Codable, Equatable, Sendable {
         self.elapsed = elapsed
         self.duration = duration
     }
+
+    public static let unavailable = MediaSnapshot(
+        title: "",
+        artist: "",
+        isPlaying: false,
+        elapsed: 0,
+        duration: 0
+    )
 }
 
-public enum ConnectionState: String, Codable, Sendable { case disconnected, pairing, connecting, connected, stale }
+public enum ConnectionState: String, Codable, Sendable {
+    case unavailable
+    case disconnected
+    case pairing
+    case connecting
+    case connected
+    case stale
+}
+
 public enum PhonePlatform: String, Codable, Sendable { case iPhone, android, none }
 
 public struct PhoneConnectionSnapshot: Codable, Equatable, Sendable {
