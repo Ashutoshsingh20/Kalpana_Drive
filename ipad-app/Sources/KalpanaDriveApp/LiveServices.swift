@@ -3,7 +3,7 @@ import Combine
 import CoreLocation
 import Foundation
 import KalpanaDriveCore
-import MapKit
+@preconcurrency import MapKit
 import MediaPlayer
 import Network
 import Speech
@@ -190,8 +190,6 @@ final class ConnectivityService: ObservableObject {
         monitor.cancel()
     }
 }
-
-
 
 @MainActor
 final class MapKitNavigationService: ObservableObject {
@@ -400,7 +398,7 @@ final class LiveSpeechService: NSObject, ObservableObject {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
+            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let request = SFSpeechAudioBufferRecognitionRequest()
