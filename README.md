@@ -1,6 +1,6 @@
 # Kalpana Drive
 
-Kalpana Drive is an independent driving-focused system for an iPad mounted in a Maruti Suzuki Ignis, with an optional iPhone companion. It uses public Apple APIs and does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
+Kalpana Drive is an independent driving-focused system for an iPad mounted in a Maruti Suzuki Ignis, with an iPhone companion. It uses public Apple APIs and does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
 
 The repository follows one hard rule: **no demo data, mock services, simulated movement, fabricated connection states, or placeholder success are allowed in production.** A capability either uses a real platform service or reports that it is unavailable.
 
@@ -19,7 +19,7 @@ The repository follows one hard rule: **no demo data, mock services, simulated m
 - Nearby iPhone advertising, explicit connection approval, required Multipeer transport encryption, sequence validation, and replay rejection.
 - iPhone contact display, search, one-tap outgoing-call initiation through the Apple system interface, and remote iPhone Apple Music controls.
 
-## Implemented iPhone companion foundation
+## Implemented iPhone companion
 
 - Nearby iPad discovery and user-initiated connection.
 - Contacts permission and approved contact snapshot relay.
@@ -71,6 +71,6 @@ Select your Apple development team in each project and install both apps on phys
 ./scripts/build-iphone.sh
 ```
 
-GitHub Actions also generates and compiles both Apple targets on a macOS runner.
+GitHub Actions has successfully generated and compiled both Apple simulator targets with Xcode 16.4.
 
 GPS speed, Bluetooth audio routing, microphone recognition, iPhone discovery, contact relay, Apple Music commands, calling handoff, heat, and charging behavior still require physical-device verification.
