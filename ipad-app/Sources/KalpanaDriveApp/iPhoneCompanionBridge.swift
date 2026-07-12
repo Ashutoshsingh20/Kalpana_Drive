@@ -1,5 +1,5 @@
 import Foundation
-import MultipeerConnectivity
+@preconcurrency import MultipeerConnectivity
 import UIKit
 
 struct PhoneBridgeEnvelope: Codable, Sendable {
@@ -132,6 +132,11 @@ extension JSONDecoder {
     }
 }
 
+private final class InvitationDecision: @unchecked Sendable {
+    let handler: (Bool, MCSession?) -> Void
+    init(_ handler: @escaping (Bool, MCSession?) -> Void) { self.handler = handler }
+}
+
 @MainActor
 final class iPhoneCompanionBridge: NSObject, ObservableObject {
     @Published private(set) var connectedPeer: MCPeerID?
@@ -154,7 +159,7 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
         discoveryInfo: ["role": "ipad", "protocol": "1"],
         serviceType: serviceType
     )
-    private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
+    private var pendingInvitation: InvitationDecision?
     private var sequence: UInt64 = 0
     private var highestReceivedSequence: UInt64 = 0
     private let deviceID: UUID
@@ -180,15 +185,15 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
     }
 
     func approvePendingConnection() {
-        guard let handler = pendingInvitationHandler else { return }
-        handler(true, session)
-        pendingInvitationHandler = nil
+        guard let pendingInvitation else { return }
+        pendingInvitation.handler(true, session)
+        self.pendingInvitation = nil
         statusText = "Connecting to \(pendingPeer?.displayName ?? "iPhone")"
     }
 
     func rejectPendingConnection() {
-        pendingInvitationHandler?(false, nil)
-        pendingInvitationHandler = nil
+        pendingInvitation?.handler(false, nil)
+        pendingInvitation = nil
         pendingPeer = nil
         statusText = "Connection rejected"
     }
@@ -202,6 +207,7 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
         deviceState = nil
         calendarDestinations = []
         sharedLocation = nil
+        lastCommandResult = nil
         statusText = "Waiting for iPhone companion"
     }
 
@@ -211,6 +217,10 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
 
     func requestFullSync() {
         sendHello()
+    }
+
+    func clearError() {
+        lastError = nil
     }
 
     private func sendHello() {
@@ -254,7 +264,6 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
             case .deviceHello:
                 deviceHello = try envelope.decodePayload(PhoneBridgeDeviceHello.self)
                 statusText = "Connected to \(deviceHello?.name ?? "iPhone")"
-                sendHello()
             case .deviceState, .heartbeat:
                 deviceState = try envelope.decodePayload(PhoneBridgeDeviceState.self)
             case .contactsSnapshot:
@@ -289,46 +298,49 @@ extension iPhoneCompanionBridge: @preconcurrency MCNearbyServiceAdvertiserDelega
         withContext context: Data?,
         invitationHandler: @escaping (Bool, MCSession?) -> Void
     ) {
-        Task { @MainActor in
-            pendingInvitationHandler?(false, nil)
-            pendingPeer = peerID
-            pendingInvitationHandler = invitationHandler
-            statusText = "Approve connection from \(peerID.displayName)"
+        let decision = InvitationDecision(invitationHandler)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.pendingInvitation?.handler(false, nil)
+            self.pendingPeer = peerID
+            self.pendingInvitation = decision
+            self.statusText = "Approve connection from \(peerID.displayName)"
         }
     }
 
     nonisolated func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
-        Task { @MainActor in
-            lastError = error.localizedDescription
-            statusText = "iPhone discovery is unavailable"
+        Task { @MainActor [weak self] in
+            self?.lastError = error.localizedDescription
+            self?.statusText = "iPhone discovery is unavailable"
         }
     }
 }
 
 extension iPhoneCompanionBridge: @preconcurrency MCSessionDelegate {
     nonisolated func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             switch state {
             case .connected:
-                connectedPeer = peerID
-                pendingPeer = nil
-                pendingInvitationHandler = nil
-                highestReceivedSequence = 0
-                statusText = "Encrypted connection active with \(peerID.displayName)"
-                sendHello()
+                self.connectedPeer = peerID
+                self.pendingPeer = nil
+                self.pendingInvitation = nil
+                self.highestReceivedSequence = 0
+                self.statusText = "Encrypted connection active with \(peerID.displayName)"
+                self.sendHello()
             case .connecting:
-                statusText = "Connecting to \(peerID.displayName)"
+                self.statusText = "Connecting to \(peerID.displayName)"
             case .notConnected:
-                if connectedPeer == peerID { connectedPeer = nil }
-                statusText = "Waiting for iPhone companion"
+                if self.connectedPeer == peerID { self.connectedPeer = nil }
+                self.statusText = "Waiting for iPhone companion"
             @unknown default:
-                statusText = "Unknown companion connection state"
+                self.statusText = "Unknown companion connection state"
             }
         }
     }
 
     nonisolated func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        Task { @MainActor in receive(data) }
+        Task { @MainActor [weak self] in self?.receive(data) }
     }
 
     nonisolated func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {}
