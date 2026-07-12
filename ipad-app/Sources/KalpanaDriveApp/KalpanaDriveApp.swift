@@ -1,5 +1,5 @@
-import SwiftUI
 import KalpanaDriveCore
+import SwiftUI
 
 @main
 struct KalpanaDriveApp: App {
@@ -8,8 +8,7 @@ struct KalpanaDriveApp: App {
     var body: some Scene {
         WindowGroup {
             DashboardView(model: model)
-                .preferredColorScheme(model.appearance == .day ? .light : .dark)
+                .preferredColorScheme(model.appearance == .night ? .dark : .light)
         }
     }
 }
-
