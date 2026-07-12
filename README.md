@@ -9,22 +9,23 @@ The repository follows one hard rule: **no demo data, mock services, simulated m
 - Live MapKit map with the iPad's current location and heading.
 - Real Core Location speed, permission state, and GPS accuracy.
 - Real network reachability through `NWPathMonitor`.
-- Real Apple system-music metadata and transport controls through `MPMusicPlayerController`.
+- Real Apple Music metadata and transport controls through `MPMusicPlayerController`, plus an honest YouTube Music launch handoff (iPadOS does not expose third-party playback control).
 - Real current audio-output inspection through `AVAudioSession`.
 - Real battery, charging, low-power, and thermal state reporting.
 - Real speech recognition and text-to-speech through Speech and AVFoundation.
 - Driving-state restrictions calculated from live speed, power, thermal, network, and phone state.
-- MapKit driving-route service for real destinations.
+- MapKit destination search, alternatives, route polylines, cancellation, and destination-based route recovery.
 - Atomic local recovery storage and deterministic domain checks.
 
 ## Truthful unavailable states
 
-Phone calls, phone notifications, and cross-device messaging remain unavailable until real authenticated iPhone and Android companion applications are implemented. The iPad UI does not fabricate these features or display pretend phone data.
+Phone calls, phone notifications, and message relay remain unavailable until authenticated companion pairing is complete. The iPhone companion foundation provides real live health, destination search, and encrypted nearby discovery, but private-data sync remains disabled until device-identity approval and revocation are implemented.
 
 ## Repository layout
 
-- `ipad-app/` — Swift iPad application, XcodeGen project definition, and testable core
-- `shared-protocol/` — versioned device-message contract for future real companions
+- `ipad-app/` — Swift iPad application, committed Xcode project, reproducible XcodeGen definition, and testable core
+- `iphone-companion/` — installable SwiftUI iPhone companion foundation
+- `shared-protocol/` — versioned device-message contract
 - `documentation/` — architecture, safety, platform limitations, and implementation status
 - `tests/` — validation plans and protocol fixtures
 - `scripts/` — repeatable checks
@@ -39,18 +40,12 @@ The iPad application Info.plist contains:
 
 Without these keys, iPadOS will correctly refuse the associated live capability.
 
-## Generate and build the iPad project
+## Build the iPad project
 
 Requirements:
 
 - Full Xcode installation with the iPadOS 17 SDK or newer
-- XcodeGen
-
-```bash
-cd ipad-app
-xcodegen generate
-open KalpanaDrive.xcodeproj
-```
+Open the committed `ipad-app/KalpanaDrive.xcodeproj`. XcodeGen is optional and is used only to regenerate the project after changing `project.yml`.
 
 Select the `KalpanaDriveApp` scheme, configure your Apple development team, choose a physical iPad, and Run.
 

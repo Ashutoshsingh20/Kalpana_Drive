@@ -15,13 +15,14 @@
 - One central safety-policy engine gates dashboard, settings, voice, media, typing, browsing, device-management, and emergency action classes.
 - Event-driven service observation; the one-second task updates only the clock and stale-fix safety is reevaluated every five seconds.
 - MapKit route calculation service for real destinations.
+- Real MapKit place and address search, selectable results, route alternatives, polyline rendering, cancellation, and destination-based route recovery.
 - Live system-health diagnostics.
 - Atomic local recovery store, 21 deterministic domain checks, and an XCTest target running on iPad Simulator.
 - Versioned shared-protocol envelope and security contract.
 
 ## Explicitly unavailable
 
-- iPhone and Android companion connections are not implemented.
+- Android companion connections are not implemented. The iPhone companion now has a signed installable foundation with live health, MapKit destination search, and encrypted Multipeer discovery; trusted-identity pairing is not complete, so private-data synchronization remains disabled.
 - Calls, phone notifications, message replies, and phone media relay are not displayed or represented as functional.
 - Ignis vehicle telemetry is unavailable without a real, tested OBD-II integration.
 - Genuine Apple CarPlay and Android Auto receiver modes are outside product scope.

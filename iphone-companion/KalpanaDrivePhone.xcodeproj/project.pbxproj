@@ -1,0 +1,312 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0032D7C34B4CDA36E88F668C /* NearbyIPadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5390419A28FBC86B08DCD92 /* NearbyIPadService.swift */; };
+		5FA55C5D7A0079088BD1A309 /* CompanionDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B99C2C1F9EC5DD0A3DAED0 /* CompanionDashboardView.swift */; };
+		C441A0EA9AEAC133E251105A /* CompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F9D1D53EB605D96DE915CB /* CompanionModel.swift */; };
+		C880D6BDBB282752E90C1DC2 /* KalpanaDrivePhoneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F018D7DE1BA3DADD822A14E9 /* KalpanaDrivePhoneApp.swift */; };
+		E0F7254755673D6CBF6CE428 /* CompanionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC5D6A90186C5AE0EAB9AE7 /* CompanionModels.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		7DC5D6A90186C5AE0EAB9AE7 /* CompanionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionModels.swift; sourceTree = "<group>"; };
+		AFF30484613AA91AC73A8706 /* KalpanaDrivePhone.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KalpanaDrivePhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1B99C2C1F9EC5DD0A3DAED0 /* CompanionDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionDashboardView.swift; sourceTree = "<group>"; };
+		F018D7DE1BA3DADD822A14E9 /* KalpanaDrivePhoneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KalpanaDrivePhoneApp.swift; sourceTree = "<group>"; };
+		F5390419A28FBC86B08DCD92 /* NearbyIPadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyIPadService.swift; sourceTree = "<group>"; };
+		F6F9D1D53EB605D96DE915CB /* CompanionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		67E24F87130DC98AB9B052E8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AFF30484613AA91AC73A8706 /* KalpanaDrivePhone.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A4C6F49F314BFDE696E74AA5 = {
+			isa = PBXGroup;
+			children = (
+				D01574DE07A90A785A07DC90 /* Sources */,
+				67E24F87130DC98AB9B052E8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D01574DE07A90A785A07DC90 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				B1B99C2C1F9EC5DD0A3DAED0 /* CompanionDashboardView.swift */,
+				F6F9D1D53EB605D96DE915CB /* CompanionModel.swift */,
+				7DC5D6A90186C5AE0EAB9AE7 /* CompanionModels.swift */,
+				F018D7DE1BA3DADD822A14E9 /* KalpanaDrivePhoneApp.swift */,
+				F5390419A28FBC86B08DCD92 /* NearbyIPadService.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1F8CBBDFEB332A7907D2833F /* KalpanaDrivePhone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5C93F51E3DAFCE4C033D5863 /* Build configuration list for PBXNativeTarget "KalpanaDrivePhone" */;
+			buildPhases = (
+				464750F56BDB4AA379CC3B95 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KalpanaDrivePhone;
+			packageProductDependencies = (
+			);
+			productName = KalpanaDrivePhone;
+			productReference = AFF30484613AA91AC73A8706 /* KalpanaDrivePhone.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		58359093A47E1AD0BBF03203 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					1F8CBBDFEB332A7907D2833F = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 2AB4DD6AEAD6FA8FCBBAB80D /* Build configuration list for PBXProject "KalpanaDrivePhone" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A4C6F49F314BFDE696E74AA5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 67E24F87130DC98AB9B052E8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1F8CBBDFEB332A7907D2833F /* KalpanaDrivePhone */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		464750F56BDB4AA379CC3B95 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FA55C5D7A0079088BD1A309 /* CompanionDashboardView.swift in Sources */,
+				C441A0EA9AEAC133E251105A /* CompanionModel.swift in Sources */,
+				E0F7254755673D6CBF6CE428 /* CompanionModels.swift in Sources */,
+				C880D6BDBB282752E90C1DC2 /* KalpanaDrivePhoneApp.swift in Sources */,
+				0032D7C34B4CDA36E88F668C /* NearbyIPadService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0523CCFF925E53213279DF47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ashutoshsingh.kalpanadrive.phone;
+				PRODUCT_NAME = "Kalpana Drive Phone";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5D642021A01EA73098B9088C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		8385E350D060EC58A2B19BD9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ashutoshsingh.kalpanadrive.phone;
+				PRODUCT_NAME = "Kalpana Drive Phone";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AAAD29862F89F667D4254DD1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2AB4DD6AEAD6FA8FCBBAB80D /* Build configuration list for PBXProject "KalpanaDrivePhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D642021A01EA73098B9088C /* Debug */,
+				AAAD29862F89F667D4254DD1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5C93F51E3DAFCE4C033D5863 /* Build configuration list for PBXNativeTarget "KalpanaDrivePhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0523CCFF925E53213279DF47 /* Debug */,
+				8385E350D060EC58A2B19BD9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 58359093A47E1AD0BBF03203 /* Project object */;
+}
