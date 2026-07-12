@@ -16,6 +16,7 @@
 		75F2A43F67F7C9E6D6576AEA /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */; };
 		82961589CD7A461E0D72FAF9 /* DrivingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB7B7964375412D18A39398 /* DrivingState.swift */; };
 		8CC8ADEF831C82DEA03EB55E /* Protocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2438D14541F66C5B68444F94 /* Protocols.swift */; };
+		A11BC41BF6AF7A94A6B7A808 /* JSONRouteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E10A687607D817E3D7C593 /* JSONRouteRepository.swift */; };
 		A3EAA4DB1FC22829DE64F1AD /* KalpanaDriveCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A9DB5948416379131463ABC9 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */; };
 		B2C9DF818EE57F0EA0DA204B /* KalpanaDriveCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; };
@@ -77,6 +78,7 @@
 		93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingStateAndSafetyTests.swift; sourceTree = "<group>"; };
 		98CDFA29656953DA9F48176B /* DriveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveTheme.swift; sourceTree = "<group>"; };
 		A3B225DA98195D08E7C9CA3E /* LiveServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveServices.swift; sourceTree = "<group>"; };
+		A9E10A687607D817E3D7C593 /* JSONRouteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRouteRepository.swift; sourceTree = "<group>"; };
 		CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KalpanaDriveApp.swift; sourceTree = "<group>"; };
 		E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 		09C84E3BFA2531A47712D8C2 /* Data */ = {
 			isa = PBXGroup;
 			children = (
+				A9E10A687607D817E3D7C593 /* JSONRouteRepository.swift */,
 				FB25A35D99807A37B7832025 /* RecoveryStore.swift */,
 			);
 			path = Data;
@@ -313,6 +316,7 @@
 			files = (
 				C87F935A1FC081501BC8A53E /* DriveTheme.swift in Sources */,
 				82961589CD7A461E0D72FAF9 /* DrivingState.swift in Sources */,
+				A11BC41BF6AF7A94A6B7A808 /* JSONRouteRepository.swift in Sources */,
 				5B44DB746F7651E717247793 /* Models.swift in Sources */,
 				8CC8ADEF831C82DEA03EB55E /* Protocols.swift in Sources */,
 				14BF7C1A2CD4A7EE74EA2955 /* RecoveryStore.swift in Sources */,

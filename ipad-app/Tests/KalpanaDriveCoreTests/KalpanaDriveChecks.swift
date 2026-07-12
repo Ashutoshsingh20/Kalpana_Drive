@@ -7,7 +7,8 @@ struct KalpanaDriveChecks {
         try checkDrivingStateMachine()
         try checkSafetyPolicy()
         try await checkRecoveryStore()
-        print("KalpanaDriveChecks: 21 checks passed")
+        try await checkRouteRepository()
+        print("KalpanaDriveChecks: 23 checks passed")
     }
 
     private static func checkSafetyPolicy() throws {
@@ -66,6 +67,32 @@ struct KalpanaDriveChecks {
         let restored = try await store.load()
         try expect(restored == snapshot, "recovery snapshot round trip")
         try await store.clear()
+    }
+
+    private static func checkRouteRepository() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("active-route.json")
+        let repository = JSONRouteRepository(fileURL: url)
+        let destination = Destination(
+            name: "Configured place",
+            address: "Real user-selected address",
+            coordinate: Coordinate(latitude: 19.076, longitude: 72.8777),
+            kind: .recent
+        )
+        let route = RouteSnapshot(
+            destination: destination,
+            nextInstruction: "Recalculate after launch",
+            distanceRemainingMetres: 1_500,
+            expectedArrival: Date(timeIntervalSince1970: 2_000),
+            isActive: true
+        )
+        try await repository.save(route)
+        let restored = try await repository.loadActiveRoute()
+        try expect(restored == route, "active route persists")
+        try await repository.clear()
+        let cleared = try await repository.loadActiveRoute()
+        try expect(cleared == nil, "cancelled route is removed")
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {

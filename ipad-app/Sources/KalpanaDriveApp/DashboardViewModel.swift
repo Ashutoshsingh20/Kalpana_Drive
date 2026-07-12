@@ -2,6 +2,7 @@ import Combine
 import CoreLocation
 import Foundation
 import KalpanaDriveCore
+import MapKit
 import Speech
 import UIKit
 
@@ -19,6 +20,10 @@ final class DashboardViewModel: ObservableObject {
     )
     @Published private(set) var audioRoute: AudioRoute = .unknown
     @Published private(set) var activeRoute: RouteSnapshot?
+    @Published private(set) var mapRoute: MKRoute?
+    @Published private(set) var alternativeRoutes: [MKRoute] = []
+    @Published private(set) var searchResults: [MapSearchResult] = []
+    @Published private(set) var isSearching = false
     @Published private(set) var isOnline = false
     @Published private(set) var locationPermission = "Checking"
     @Published private(set) var locationAccuracy = "No GPS fix"
@@ -30,6 +35,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var controlHand: ControlHand = .left
     @Published private(set) var selectedSection: DashboardSection = .home
     @Published var voiceMessage = "Tap to speak"
+    @Published var destinationQuery = ""
     @Published var isVoiceActive = false
     @Published var isDiagnosticsPresented = false
 
@@ -52,6 +58,7 @@ final class DashboardViewModel: ObservableObject {
         bindLiveServices()
         refreshLiveState()
         startClock()
+        Task { await navigationService.restoreActiveRoute() }
     }
 
     deinit {
@@ -74,6 +81,17 @@ final class DashboardViewModel: ObservableObject {
         guard authorize(.controlMedia, source: .touch) else { return }
         mediaService.execute(.next)
         refreshLiveState()
+    }
+
+    func openYouTubeMusic() {
+        guard authorize(.openMusic, source: .touch),
+              let url = URL(string: "https://music.youtube.com") else { return }
+        Task {
+            let opened = await UIApplication.shared.open(url)
+            if !opened {
+                errorMessage = "YouTube Music could not be opened. Install it or check network access."
+            }
+        }
     }
 
     func activateVoice() {
@@ -124,6 +142,24 @@ final class DashboardViewModel: ObservableObject {
     func setAppearance(_ newAppearance: DriveAppearance) {
         guard authorize(.openSettings, source: .touch) else { return }
         appearance = newAppearance
+    }
+
+    func searchDestinations() {
+        guard authorize(.typeDestination, source: .touch) else { return }
+        let query = destinationQuery
+        Task { await navigationService.search(query, near: locationService.coordinate) }
+    }
+
+    func startNavigation(to result: MapSearchResult) {
+        guard authorize(.openMap, source: .touch) else { return }
+        destinationQuery = ""
+        navigationService.clearSearch()
+        Task { await navigationService.calculateRoute(to: result.destination) }
+    }
+
+    func cancelNavigation() {
+        guard authorize(.openMap, source: .touch) else { return }
+        navigationService.cancelRoute()
     }
 
     @discardableResult
@@ -221,6 +257,10 @@ final class DashboardViewModel: ObservableObject {
         phone = phoneService.snapshot
         audioRoute = audioService.route
         activeRoute = navigationService.activeRoute
+        mapRoute = navigationService.mapRoute
+        alternativeRoutes = navigationService.alternativeRoutes
+        searchResults = navigationService.searchResults
+        isSearching = navigationService.isSearching
         isOnline = connectivityService.isOnline
         locationPermission = authorizationDescription(locationService.authorizationStatus)
 

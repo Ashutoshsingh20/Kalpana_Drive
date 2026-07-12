@@ -38,5 +38,33 @@ final class DrivingStateAndSafetyTests: XCTestCase {
         XCTAssertTrue(policy.evaluate(.typeDestination, state: .moving, source: .voice).isAllowed)
         XCTAssertTrue(policy.evaluate(.controlMedia, state: .moving, source: .touch).isAllowed)
         XCTAssertTrue(policy.evaluate(.emergency, state: .moving, source: .touch).isAllowed)
+        XCTAssertFalse(policy.evaluate(.openSettings, state: .locationUnavailable, source: .touch).isAllowed)
+    }
+
+    func testRouteRepositoryRoundTripAndClear() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("active-route.json")
+        let repository = JSONRouteRepository(fileURL: url)
+        let destination = Destination(
+            name: "Selected destination",
+            address: "User-selected address",
+            coordinate: Coordinate(latitude: 19.076, longitude: 72.8777),
+            kind: .recent
+        )
+        let route = RouteSnapshot(
+            destination: destination,
+            nextInstruction: "Stored destination only",
+            distanceRemainingMetres: 1_500,
+            expectedArrival: Date(timeIntervalSince1970: 2_000),
+            isActive: true
+        )
+
+        try await repository.save(route)
+        let restored = try await repository.loadActiveRoute()
+        XCTAssertEqual(restored, route)
+        try await repository.clear()
+        let cleared = try await repository.loadActiveRoute()
+        XCTAssertNil(cleared)
     }
 }

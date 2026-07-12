@@ -209,7 +209,51 @@ final class PhoneCompanionService: ObservableObject {
 final class MapKitNavigationService: ObservableObject {
     @Published private(set) var activeRoute: RouteSnapshot?
     @Published private(set) var mapRoute: MKRoute?
+    @Published private(set) var alternativeRoutes: [MKRoute] = []
+    @Published private(set) var searchResults: [MapSearchResult] = []
+    @Published private(set) var isSearching = false
     @Published private(set) var lastError: String?
+
+    private let routeRepository: any RouteRepository
+
+    init(routeRepository: (any RouteRepository)? = nil) {
+        self.routeRepository = routeRepository ?? JSONRouteRepository(fileURL: Self.defaultRouteURL)
+    }
+
+    func search(_ query: String, near coordinate: CLLocationCoordinate2D?) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            searchResults = []
+            lastError = "Enter at least two characters to search."
+            return
+        }
+
+        isSearching = true
+        defer { isSearching = false }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = trimmed
+        request.resultTypes = [.address, .pointOfInterest]
+        if let coordinate {
+            request.region = MKCoordinateRegion(
+                center: coordinate,
+                latitudinalMeters: 50_000,
+                longitudinalMeters: 50_000
+            )
+        }
+
+        do {
+            let response = try await MKLocalSearch(request: request).start()
+            searchResults = response.mapItems.prefix(8).map(MapSearchResult.init)
+            lastError = searchResults.isEmpty ? "No places matched that search." : nil
+        } catch {
+            searchResults = []
+            lastError = "Place search failed: \(error.localizedDescription)"
+        }
+    }
+
+    func clearSearch() {
+        searchResults = []
+    }
 
     func calculateRoute(to destination: Destination) async {
         let request = MKDirections.Request()
@@ -231,6 +275,7 @@ final class MapKitNavigationService: ObservableObject {
                 throw NavigationServiceError.noRoute
             }
             mapRoute = route
+            alternativeRoutes = response.routes.filter { $0 !== route }
             activeRoute = RouteSnapshot(
                 destination: destination,
                 nextInstruction: route.steps.first(where: { !$0.instructions.isEmpty })?.instructions ?? "Route ready",
@@ -238,18 +283,36 @@ final class MapKitNavigationService: ObservableObject {
                 expectedArrival: Date().addingTimeInterval(route.expectedTravelTime),
                 isActive: true
             )
+            if let activeRoute {
+                try await routeRepository.save(activeRoute)
+            }
             lastError = nil
         } catch {
             mapRoute = nil
+            alternativeRoutes = []
             activeRoute = nil
-            lastError = error.localizedDescription
+            lastError = "Route calculation failed: \(error.localizedDescription)"
+        }
+    }
+
+    func restoreActiveRoute() async {
+        do {
+            guard let stored = try await routeRepository.loadActiveRoute() else { return }
+            await calculateRoute(to: stored.destination)
+        } catch {
+            lastError = "Saved route could not be restored: \(error.localizedDescription)"
         }
     }
 
     func cancelRoute() {
         mapRoute = nil
+        alternativeRoutes = []
         activeRoute = nil
         lastError = nil
+        Task {
+            do { try await routeRepository.clear() }
+            catch { lastError = "The saved route could not be cleared: \(error.localizedDescription)" }
+        }
     }
 
     enum NavigationServiceError: LocalizedError {
@@ -258,6 +321,35 @@ final class MapKitNavigationService: ObservableObject {
         var errorDescription: String? {
             "MapKit could not calculate a driving route to this destination."
         }
+    }
+
+    private static var defaultRouteURL: URL {
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return root.appendingPathComponent("KalpanaDrive/active-route.json")
+    }
+}
+
+struct MapSearchResult: Identifiable {
+    let id = UUID()
+    let mapItem: MKMapItem
+    let name: String
+    let address: String
+
+    init(mapItem: MKMapItem) {
+        self.mapItem = mapItem
+        name = mapItem.name ?? "Unnamed place"
+        address = mapItem.placemark.title ?? "Address unavailable"
+    }
+
+    var destination: Destination {
+        let coordinate = mapItem.placemark.coordinate
+        return Destination(
+            name: name,
+            address: address,
+            coordinate: Coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude),
+            kind: .recent
+        )
     }
 }
 

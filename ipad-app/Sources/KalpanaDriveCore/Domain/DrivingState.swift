@@ -12,7 +12,7 @@ public enum DrivingState: String, Codable, CaseIterable, Sendable {
     case locationUnavailable = "LOCATION_UNAVAILABLE"
 
     public var restrictsInteraction: Bool {
-        self == .moving || self == .emergency || self == .thermalLimit
+        self == .moving || self == .emergency || self == .thermalLimit || self == .lowPower || self == .locationUnavailable
     }
 }
 

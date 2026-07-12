@@ -50,13 +50,14 @@ struct DashboardView: View {
         case .home:
             dashboardGrid(compact: compact)
         case .map:
-            LiveMapCard(speedKPH: model.speedKPH, expanded: true)
+            NavigationMapSection(model: model)
         case .music:
             MusicSection(
                 media: model.media,
                 previous: model.previousTrack,
                 togglePlayback: model.togglePlayback,
-                next: model.nextTrack
+                next: model.nextTrack,
+                openYouTubeMusic: model.openYouTubeMusic
             )
         case .phone:
             PhoneSection(phone: model.phone)
@@ -67,7 +68,7 @@ struct DashboardView: View {
 
     private func dashboardGrid(compact: Bool) -> some View {
         HStack(spacing: 16) {
-            LiveMapCard(speedKPH: model.speedKPH, expanded: false)
+            LiveMapCard(speedKPH: model.speedKPH, expanded: false, route: model.mapRoute)
                 .frame(maxWidth: .infinity)
             VStack(spacing: 16) {
                 NavigationCard(route: model.activeRoute)
@@ -158,6 +159,7 @@ struct DashboardView: View {
 private struct LiveMapCard: View {
     let speedKPH: Int
     let expanded: Bool
+    let route: MKRoute?
     @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
 
     var body: some View {
@@ -165,6 +167,10 @@ private struct LiveMapCard: View {
             ZStack(alignment: .topLeading) {
                 Map(position: $position) {
                     UserAnnotation()
+                    if let route {
+                        MapPolyline(route.polyline)
+                            .stroke(.primary, lineWidth: 7)
+                    }
                 }
                 .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
                 .mapControls {
@@ -195,6 +201,115 @@ private struct LiveMapCard: View {
                 .padding(14)
             }
         }
+    }
+}
+
+private struct NavigationMapSection: View {
+    @ObservedObject var model: DashboardViewModel
+    @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+
+    var body: some View {
+        DriveCard(insets: 0) {
+            ZStack(alignment: .top) {
+                Map(position: $position) {
+                    UserAnnotation()
+                    if let route = model.mapRoute {
+                        MapPolyline(route.polyline)
+                            .stroke(.primary, lineWidth: 8)
+                    }
+                    ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { _, alternative in
+                        MapPolyline(alternative.polyline)
+                            .stroke(.secondary.opacity(0.65), lineWidth: 4)
+                    }
+                }
+                .mapStyle(.standard(elevation: .realistic))
+                .mapControls {
+                    MapCompass()
+                    MapScaleView()
+                    MapUserLocationButton()
+                }
+
+                VStack(spacing: 10) {
+                    if !model.drivingState.restrictsInteraction {
+                        HStack(spacing: 10) {
+                            TextField("Search a place or address", text: $model.destinationQuery)
+                                .textFieldStyle(.plain)
+                                .font(.title3.bold())
+                                .submitLabel(.search)
+                                .onSubmit(model.searchDestinations)
+                            Button(action: model.searchDestinations) {
+                                if model.isSearching {
+                                    ProgressView().frame(width: 54, height: 54)
+                                } else {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.title2.bold())
+                                        .frame(width: 54, height: 54)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(.horizontal, 16)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                        if !model.searchResults.isEmpty {
+                            VStack(spacing: 0) {
+                                ForEach(model.searchResults.prefix(5)) { result in
+                                    Button { model.startNavigation(to: result) } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(result.name).font(.headline).lineLimit(1)
+                                                Text(result.address).font(.caption).lineLimit(1)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                        }
+                                        .frame(minHeight: 58)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    if result.id != model.searchResults.prefix(5).last?.id { Divider() }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .background(.regularMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    } else {
+                        Text("Destination typing is unavailable while driving. Use Kalpana voice control.")
+                            .font(.headline)
+                            .padding(14)
+                            .background(.regularMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+
+                    Spacer()
+
+                    if let route = model.activeRoute {
+                        HStack(spacing: 18) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(route.nextInstruction).font(.title2.bold()).lineLimit(2)
+                                Text("\(distance(route.distanceRemainingMetres)) • ETA \(route.expectedArrival.formatted(date: .omitted, time: .shortened))")
+                                    .font(.headline)
+                            }
+                            Spacer()
+                            Button("Cancel Route", action: model.cancelNavigation)
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                        }
+                        .padding(16)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                .padding(14)
+            }
+        }
+    }
+
+    private func distance(_ metres: Double) -> String {
+        if metres >= 1_000 { return String(format: "%.1f km", metres / 1_000) }
+        return "\(Int(metres.rounded())) m"
     }
 }
 
@@ -291,6 +406,7 @@ private struct MusicSection: View {
     let previous: () -> Void
     let togglePlayback: () -> Void
     let next: () -> Void
+    let openYouTubeMusic: () -> Void
 
     var body: some View {
         DriveCard {
@@ -307,6 +423,17 @@ private struct MusicSection: View {
                     mediaButton(media.isPlaying ? "pause.fill" : "play.fill", action: togglePlayback)
                     mediaButton("forward.end.fill", action: next)
                 }
+                Button(action: openYouTubeMusic) {
+                    Label("Open YouTube Music", systemImage: "play.rectangle.fill")
+                        .font(.title3.bold())
+                        .frame(minWidth: 280, minHeight: 60)
+                }
+                .buttonStyle(.borderedProminent)
+                Text("iPadOS does not allow Kalpana Drive to read or control another app's YouTube Music session. Playback controls above operate the public Apple Music system player; YouTube Music opens in its own app or website.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 680)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

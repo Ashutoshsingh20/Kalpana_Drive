@@ -77,7 +77,7 @@ public struct DrivingSafetyPolicy: Sendable {
                 reason: "Use Kalpana voice control for this action while moving."
             )
         case .parkedOnly:
-            let parkedStates: Set<DrivingState> = [.parked, .offline, .phoneDisconnected, .locationUnavailable, .passengerMode]
+            let parkedStates: Set<DrivingState> = [.parked, .offline, .phoneDisconnected, .passengerMode]
             guard parkedStates.contains(state) else {
                 return SafetyDecision(
                     isAllowed: false,
