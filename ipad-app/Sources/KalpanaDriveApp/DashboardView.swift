@@ -6,17 +6,17 @@ struct DashboardView: View {
     @ObservedObject var model: DashboardViewModel
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                palette.background.ignoresSafeArea()
-                VStack(spacing: 16) {
-                    statusBar
-                    if let error = model.errorMessage { errorBanner(error) }
-                    sectionContent(compact: geometry.size.width < 900)
-                    bottomControls
+        ZStack {
+            palette.background.ignoresSafeArea()
+            VStack(spacing: 16) {
+                StatusBar(model: model, palette: palette)
+                if let error = model.errorMessage {
+                    ErrorBanner(message: error, dismiss: model.clearError)
                 }
-                .padding(20)
+                content
+                BottomNavigation(model: model, palette: palette)
             }
+            .padding(20)
         }
         .foregroundStyle(palette.foreground)
         .sheet(isPresented: $model.isDiagnosticsPresented) {
@@ -24,29 +24,11 @@ struct DashboardView: View {
         }
     }
 
-    private var statusBar: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.now, format: .dateTime.hour().minute())
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
-                Text(model.now, format: .dateTime.weekday(.wide).day().month(.wide))
-                    .font(.headline)
-            }
-            Spacer()
-            statusPill(model.drivingState.rawValue, prominent: model.drivingState.restrictsInteraction)
-            statusPill("GPS: \(model.locationAccuracy)")
-            statusPill("AUDIO: \(model.audioRoute.rawValue.uppercased())")
-            statusPill(model.iphoneConnected ? "IPHONE CONNECTED" : "IPHONE OFFLINE", prominent: !model.iphoneConnected)
-            statusPill(model.isOnline ? "ONLINE" : "OFFLINE", prominent: !model.isOnline)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
     @ViewBuilder
-    private func sectionContent(compact: Bool) -> some View {
+    private var content: some View {
         switch model.selectedSection {
         case .home:
-            homeSection(compact: compact)
+            HomeSection(model: model)
         case .map:
             NavigationMapSection(model: model)
         case .music:
@@ -58,26 +40,81 @@ struct DashboardView: View {
         }
     }
 
-    private func homeSection(compact: Bool) -> some View {
-        HStack(spacing: 16) {
-            LiveMapCard(speedKPH: model.speedKPH, route: model.mapRoute)
-                .frame(maxWidth: .infinity)
-            VStack(spacing: 16) {
-                NavigationCard(route: model.activeRoute)
-                MediaSummaryCard(model: model)
-                PhoneSummaryCard(model: model)
-            }
-            .frame(width: compact ? 300 : 370)
-        }
-        .frame(maxHeight: .infinity)
+    private var palette: DrivePalette {
+        DrivePalette(appearance: model.appearance)
     }
+}
 
-    private var bottomControls: some View {
+private struct StatusBar: View {
+    @ObservedObject var model: DashboardViewModel
+    let palette: DrivePalette
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.now, format: .dateTime.hour().minute())
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                Text(model.now, format: .dateTime.weekday(.wide).day().month(.wide))
+                    .font(.headline)
+            }
+            Spacer()
+            StatusPill(text: model.drivingState.rawValue, prominent: model.drivingState.restrictsInteraction, palette: palette)
+            StatusPill(text: "GPS: \(model.locationAccuracy)", palette: palette)
+            StatusPill(text: "AUDIO: \(model.audioRoute.rawValue.uppercased())", palette: palette)
+            StatusPill(text: model.iphoneConnected ? "IPHONE CONNECTED" : "IPHONE OFFLINE", prominent: !model.iphoneConnected, palette: palette)
+            StatusPill(text: model.isOnline ? "ONLINE" : "OFFLINE", prominent: !model.isOnline, palette: palette)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct StatusPill: View {
+    let text: String
+    var prominent = false
+    let palette: DrivePalette
+
+    var body: some View {
+        Text(text)
+            .font(.caption.bold())
+            .padding(.horizontal, 12)
+            .frame(minHeight: 42)
+            .background(prominent ? palette.foreground : palette.card)
+            .foregroundStyle(prominent ? palette.background : palette.foreground)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 2))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct ErrorBanner: View {
+    let message: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(message).font(.headline).lineLimit(2)
+            Spacer()
+            Button("Dismiss", action: dismiss).buttonStyle(.bordered)
+        }
+        .padding(14)
+        .background(Color.primary.opacity(0.08))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 2))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct BottomNavigation: View {
+    @ObservedObject var model: DashboardViewModel
+    let palette: DrivePalette
+
+    var body: some View {
         HStack(spacing: 12) {
             ForEach(DashboardSection.allCases) { section in
-                Button { model.selectSection(section) } label: {
+                Button {
+                    model.selectSection(section)
+                } label: {
                     VStack(spacing: 5) {
-                        Image(systemName: sectionIcon(section))
+                        Image(systemName: icon(for: section))
                         Text(section.rawValue)
                     }
                     .font(.headline)
@@ -89,7 +126,9 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
             }
 
-            Button(action: model.activateVoice) {
+            Button {
+                model.activateVoice()
+            } label: {
                 VStack(spacing: 5) {
                     Image(systemName: model.isVoiceActive ? "waveform" : "mic.fill")
                     Text(model.isVoiceActive ? "Listening" : "Kalpana")
@@ -104,31 +143,7 @@ struct DashboardView: View {
         }
     }
 
-    private func errorBanner(_ message: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-            Text(message).font(.headline).lineLimit(2)
-            Spacer()
-            Button("Dismiss", action: model.clearError).buttonStyle(.bordered)
-        }
-        .padding(14)
-        .background(palette.card)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(palette.foreground, lineWidth: 2))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func statusPill(_ text: String, prominent: Bool = false) -> some View {
-        Text(text)
-            .font(.caption.bold())
-            .padding(.horizontal, 12)
-            .frame(minHeight: 42)
-            .background(prominent ? palette.foreground : palette.card)
-            .foregroundStyle(prominent ? palette.background : palette.foreground)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 2))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    private func sectionIcon(_ section: DashboardSection) -> String {
+    private func icon(for section: DashboardSection) -> String {
         switch section {
         case .home: "house.fill"
         case .map: "map.fill"
@@ -137,8 +152,25 @@ struct DashboardView: View {
         case .settings: "gearshape.fill"
         }
     }
+}
 
-    private var palette: DrivePalette { DrivePalette(appearance: model.appearance) }
+private struct HomeSection: View {
+    @ObservedObject var model: DashboardViewModel
+
+    var body: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 16) {
+                LiveMapCard(speedKPH: model.speedKPH, route: model.mapRoute)
+                    .frame(maxWidth: .infinity)
+                VStack(spacing: 16) {
+                    NavigationCard(route: model.activeRoute)
+                    MediaSummaryCard(model: model)
+                    PhoneSummaryCard(model: model)
+                }
+                .frame(width: geometry.size.width < 900 ? 300 : 370)
+            }
+        }
+    }
 }
 
 private struct LiveMapCard: View {
@@ -171,7 +203,7 @@ private struct LiveMapCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     Spacer()
                     VStack(spacing: 0) {
-                        Text("\(speedKPH)")
+                        Text(String(speedKPH))
                             .font(.system(size: 52, weight: .black, design: .rounded))
                         Text("KM/H").font(.caption.bold())
                     }
@@ -193,102 +225,123 @@ private struct NavigationMapSection: View {
     var body: some View {
         DriveCard(insets: 0) {
             ZStack(alignment: .top) {
-                Map(position: $position) {
-                    UserAnnotation()
-                    if let route = model.mapRoute {
-                        MapPolyline(route.polyline).stroke(.primary, lineWidth: 8)
-                    }
-                    ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { _, route in
-                        MapPolyline(route.polyline).stroke(.secondary.opacity(0.65), lineWidth: 4)
-                    }
-                }
-                .mapStyle(.standard(elevation: .realistic))
-                .mapControls {
-                    MapCompass()
-                    MapScaleView()
-                    MapUserLocationButton()
-                }
-
+                map
                 VStack(spacing: 10) {
-                    if !model.drivingState.restrictsInteraction {
-                        HStack(spacing: 10) {
-                            TextField("Search a place or address", text: $model.destinationQuery)
-                                .textFieldStyle(.plain)
-                                .font(.title3.bold())
-                                .submitLabel(.search)
-                                .onSubmit(model.searchDestinations)
-                            Button(action: model.searchDestinations) {
-                                if model.isSearching {
-                                    ProgressView().frame(width: 54, height: 54)
-                                } else {
-                                    Image(systemName: "magnifyingglass")
-                                        .font(.title2.bold())
-                                        .frame(width: 54, height: 54)
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .padding(.horizontal, 16)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                        if !model.searchResults.isEmpty {
-                            VStack(spacing: 0) {
-                                ForEach(model.searchResults.prefix(5)) { result in
-                                    Button { model.startNavigation(to: result) } label: {
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(result.name).font(.headline).lineLimit(1)
-                                                Text(result.address).font(.caption).lineLimit(1)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                                        }
-                                        .frame(minHeight: 58)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    Divider()
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .background(.regularMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }
-                    } else {
-                        Text("Destination typing is unavailable while driving. Use Kalpana voice control.")
-                            .font(.headline)
-                            .padding(14)
-                            .background(.regularMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
-
+                    searchControls
                     Spacer()
-
-                    if let route = model.activeRoute {
-                        HStack(spacing: 18) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(route.nextInstruction).font(.title2.bold()).lineLimit(2)
-                                Text("\(distance(route.distanceRemainingMetres)) • ETA \(route.expectedArrival.formatted(date: .omitted, time: .shortened))")
-                                    .font(.headline)
-                            }
-                            Spacer()
-                            Button("Cancel Route", action: model.cancelNavigation)
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
-                        }
-                        .padding(16)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
+                    routeControls
                 }
                 .padding(14)
             }
         }
     }
 
+    private var map: some View {
+        Map(position: $position) {
+            UserAnnotation()
+            if let route = model.mapRoute {
+                MapPolyline(route.polyline).stroke(.primary, lineWidth: 8)
+            }
+            ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { item in
+                MapPolyline(item.element.polyline).stroke(.secondary.opacity(0.65), lineWidth: 4)
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        .mapControls {
+            MapCompass()
+            MapScaleView()
+            MapUserLocationButton()
+        }
+    }
+
+    @ViewBuilder
+    private var searchControls: some View {
+        if model.drivingState.restrictsInteraction {
+            Text("Destination typing is unavailable while driving. Use Kalpana voice control.")
+                .font(.headline)
+                .padding(14)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        } else {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    TextField("Search a place or address", text: $model.destinationQuery)
+                        .textFieldStyle(.plain)
+                        .font(.title3.bold())
+                        .submitLabel(.search)
+                        .onSubmit { model.searchDestinations() }
+                    Button {
+                        model.searchDestinations()
+                    } label: {
+                        Group {
+                            if model.isSearching {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "magnifyingglass").font(.title2.bold())
+                            }
+                        }
+                        .frame(width: 54, height: 54)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal, 16)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                if !model.searchResults.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.searchResults.prefix(5))) { result in
+                            Button {
+                                model.startNavigation(to: result)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(result.name).font(.headline).lineLimit(1)
+                                        Text(result.address).font(.caption).lineLimit(1)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                }
+                                .frame(minHeight: 58)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            Divider()
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var routeControls: some View {
+        if let route = model.activeRoute {
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(route.nextInstruction).font(.title2.bold()).lineLimit(2)
+                    Text("\(distance(route.distanceRemainingMetres)) • ETA \(route.expectedArrival.formatted(date: .omitted, time: .shortened))")
+                        .font(.headline)
+                }
+                Spacer()
+                Button("Cancel Route") { model.cancelNavigation() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+            }
+            .padding(16)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
     private func distance(_ metres: Double) -> String {
-        metres >= 1_000 ? String(format: "%.1f km", metres / 1_000) : "\(Int(metres.rounded())) m"
+        if metres >= 1_000 {
+            return String(format: "%.1f km", metres / 1_000)
+        }
+        return "\(Int(metres.rounded())) m"
     }
 }
 
@@ -298,7 +351,8 @@ private struct NavigationCard: View {
     var body: some View {
         DriveCard {
             VStack(alignment: .leading, spacing: 12) {
-                Label("NAVIGATION", systemImage: "arrow.triangle.turn.up.right.diamond.fill").font(.headline)
+                Label("NAVIGATION", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                    .font(.headline)
                 if let route, route.isActive {
                     Text(route.nextInstruction).font(.title2.bold()).lineLimit(2)
                     HStack {
@@ -322,6 +376,24 @@ private struct NavigationCard: View {
 private struct MediaSummaryCard: View {
     @ObservedObject var model: DashboardViewModel
 
+    private var title: String {
+        if model.iphoneConnected {
+            return model.iphoneMedia.title ?? "iPhone Apple Music"
+        }
+        return model.media.title.isEmpty ? "Nothing playing" : model.media.title
+    }
+
+    private var subtitle: String {
+        if model.iphoneConnected {
+            return model.iphoneMedia.artist ?? "Nothing playing on iPhone"
+        }
+        return model.media.title.isEmpty ? "iPad Apple Music" : model.media.artist
+    }
+
+    private var isPlaying: Bool {
+        model.iphoneConnected ? model.iphoneMedia.isPlaying : model.media.isPlaying
+    }
+
     var body: some View {
         DriveCard {
             HStack(spacing: 14) {
@@ -330,23 +402,18 @@ private struct MediaSummaryCard: View {
                     .frame(width: 58, height: 58)
                     .background(Color.primary.opacity(0.12))
                 VStack(alignment: .leading, spacing: 3) {
-                    if model.iphoneConnected {
-                        Text(model.iphoneMedia.title ?? "iPhone Apple Music")
-                            .font(.headline).lineLimit(1)
-                        Text(model.iphoneMedia.artist ?? "Nothing playing on iPhone")
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    } else {
-                        Text(model.media.title.isEmpty ? "Nothing playing" : model.media.title)
-                            .font(.headline).lineLimit(1)
-                        Text(model.media.title.isEmpty ? "iPad Apple Music" : model.media.artist)
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
+                    Text(title).font(.headline).lineLimit(1)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
-                Button(action: model.iphoneConnected ? model.toggleIPhonePlayback : model.togglePlayback) {
-                    Image(systemName: model.iphoneConnected
-                          ? (model.iphoneMedia.isPlaying ? "pause.fill" : "play.fill")
-                          : (model.media.isPlaying ? "pause.fill" : "play.fill"))
+                Button {
+                    if model.iphoneConnected {
+                        model.toggleIPhonePlayback()
+                    } else {
+                        model.togglePlayback()
+                    }
+                } label: {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.title2.bold())
                         .frame(width: 58, height: 58)
                 }
@@ -365,18 +432,20 @@ private struct PhoneSummaryCard: View {
                 Image(systemName: model.iphoneConnected ? "iphone.gen2" : "iphone.gen2.slash")
                     .font(.title)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(model.iphoneConnected ? (model.iphoneBridge.deviceHello?.name ?? "iPhone connected") : "iPhone companion")
-                        .font(.headline)
-                    Text(model.iphoneConnected
-                         ? "\(model.iphoneContacts.count) contacts available"
-                         : model.iphoneBridge.statusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    Text(phoneName).font(.headline)
+                    Text(phoneSubtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
             }
         }
+    }
+
+    private var phoneName: String {
+        model.iphoneConnected ? (model.iphoneBridge.deviceHello?.name ?? "iPhone connected") : "iPhone companion"
+    }
+
+    private var phoneSubtitle: String {
+        model.iphoneConnected ? "\(model.iphoneContacts.count) contacts available" : model.iphoneBridge.statusText
     }
 }
 
@@ -384,33 +453,35 @@ private struct MusicSection: View {
     @ObservedObject var model: DashboardViewModel
 
     var body: some View {
-        HStack(spacing: 16) {
-            MediaSourcePanel(
-                title: "iPad Apple Music",
-                track: model.media.title.isEmpty ? nil : model.media.title,
-                artist: model.media.artist.isEmpty ? nil : model.media.artist,
-                isPlaying: model.media.isPlaying,
-                previous: model.previousTrack,
-                toggle: model.togglePlayback,
-                next: model.nextTrack
-            )
+        ZStack(alignment: .bottom) {
+            HStack(spacing: 16) {
+                MediaSourcePanel(
+                    title: "iPad Apple Music",
+                    track: model.media.title.isEmpty ? nil : model.media.title,
+                    artist: model.media.artist.isEmpty ? nil : model.media.artist,
+                    isPlaying: model.media.isPlaying,
+                    unavailableMessage: "Nothing is playing on the iPad.",
+                    controlsDisabled: false,
+                    previous: { model.previousTrack() },
+                    toggle: { model.togglePlayback() },
+                    next: { model.nextTrack() }
+                )
+                MediaSourcePanel(
+                    title: "iPhone Apple Music",
+                    track: model.iphoneMedia.title,
+                    artist: model.iphoneMedia.artist,
+                    isPlaying: model.iphoneMedia.isPlaying,
+                    unavailableMessage: iphoneUnavailableMessage,
+                    controlsDisabled: !model.iphoneConnected,
+                    previous: { model.previousIPhoneTrack() },
+                    toggle: { model.toggleIPhonePlayback() },
+                    next: { model.nextIPhoneTrack() }
+                )
+            }
 
-            MediaSourcePanel(
-                title: "iPhone Apple Music",
-                track: model.iphoneMedia.title,
-                artist: model.iphoneMedia.artist,
-                isPlaying: model.iphoneMedia.isPlaying,
-                unavailableMessage: model.iphoneConnected
-                    ? "Nothing is playing in Apple Music on the iPhone."
-                    : "Connect the Kalpana Drive Phone app to control Apple Music on the iPhone.",
-                previous: model.previousIPhoneTrack,
-                toggle: model.toggleIPhonePlayback,
-                next: model.nextIPhoneTrack,
-                controlsDisabled: !model.iphoneConnected
-            )
-        }
-        .overlay(alignment: .bottom) {
-            Button(action: model.openYouTubeMusic) {
+            Button {
+                model.openYouTubeMusic()
+            } label: {
                 Label("Open YouTube Music on iPad", systemImage: "play.rectangle.fill")
                     .font(.headline)
                     .frame(minHeight: 52)
@@ -419,6 +490,12 @@ private struct MusicSection: View {
             .padding(.bottom, 18)
         }
     }
+
+    private var iphoneUnavailableMessage: String {
+        model.iphoneConnected
+            ? "Nothing is playing in Apple Music on the iPhone."
+            : "Connect Kalpana Drive Phone to control Apple Music on the iPhone."
+    }
 }
 
 private struct MediaSourcePanel: View {
@@ -426,11 +503,11 @@ private struct MediaSourcePanel: View {
     let track: String?
     let artist: String?
     let isPlaying: Bool
-    var unavailableMessage = "Nothing playing."
+    let unavailableMessage: String
+    let controlsDisabled: Bool
     let previous: () -> Void
     let toggle: () -> Void
     let next: () -> Void
-    var controlsDisabled = false
 
     var body: some View {
         DriveCard {
@@ -444,17 +521,22 @@ private struct MediaSourcePanel: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 HStack(spacing: 24) {
-                    mediaButton("backward.end.fill", action: previous)
-                    mediaButton(isPlaying ? "pause.fill" : "play.fill", action: toggle)
-                    mediaButton("forward.end.fill", action: next)
+                    MediaControlButton(icon: "backward.end.fill", action: previous)
+                    MediaControlButton(icon: isPlaying ? "pause.fill" : "play.fill", action: toggle)
+                    MediaControlButton(icon: "forward.end.fill", action: next)
                 }
                 .disabled(controlsDisabled)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
+}
 
-    private func mediaButton(_ icon: String, action: @escaping () -> Void) -> some View {
+private struct MediaControlButton: View {
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 34, weight: .bold))
@@ -473,73 +555,11 @@ private struct PhoneSection: View {
     var body: some View {
         DriveCard {
             VStack(spacing: 14) {
-                connectionHeader
-
-                if let pending = model.iphoneBridge.pendingPeer {
-                    HStack {
-                        Text("Allow encrypted connection from \(pending.displayName)?").font(.headline)
-                        Spacer()
-                        Button("Reject", action: model.rejectIPhoneConnection).buttonStyle(.bordered)
-                        Button("Approve", action: model.approveIPhoneConnection).buttonStyle(.borderedProminent)
-                    }
-                    .padding(14)
-                    .background(Color.primary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-
-                if model.iphoneConnected {
-                    if !model.drivingState.restrictsInteraction {
-                        HStack(spacing: 10) {
-                            TextField("Search iPhone contacts", text: Binding(
-                                get: { model.contactQuery },
-                                set: model.updateContactQuery
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .font(.title3)
-                            Button("Sync", action: model.syncIPhone).buttonStyle(.bordered)
-                        }
-
-                        ScrollView {
-                            LazyVStack(spacing: 8) {
-                                ForEach(model.filteredIPhoneContacts) { contact in
-                                    ContactRow(contact: contact, call: model.call)
-                                }
-                            }
-                        }
-                    } else {
-                        Text("Contact browsing and number entry are hidden while moving. Say “Call <name>” or use a visible one-tap favourite in a later release.")
-                            .font(.title3)
-                            .multilineTextAlignment(.center)
-                            .padding()
-                    }
-                } else {
-                    Spacer()
-                    Image(systemName: "iphone.gen2.radiowaves.left.and.right")
-                        .font(.system(size: 72, weight: .bold))
-                    Text("Open Kalpana Drive Phone on your iPhone")
-                        .font(.system(size: 34, weight: .bold))
-                    Text("Keep Wi-Fi and Bluetooth enabled on both devices, choose this iPad in the iPhone app, then approve the request here.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 760)
-                    Spacer()
-                }
-
-                if !model.drivingState.restrictsInteraction {
-                    HStack(spacing: 10) {
-                        TextField("Dial number manually", text: $model.phoneNumberToDial)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.phonePad)
-                            .font(.title3)
-                        Button(action: model.callPhoneNumber) {
-                            Label("Call", systemImage: "phone.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-
-                Text("Contacts and outgoing call initiation are supported. Native incoming cellular calls still use Apple’s Phone/Continuity interface; third-party apps cannot answer or reject them through public iOS APIs.")
+                PhoneConnectionHeader(model: model)
+                pendingConnection
+                phoneContent
+                manualDial
+                Text("Contacts and outgoing call initiation are supported. Incoming cellular calls remain in Apple’s Phone/Continuity interface because public iOS APIs do not allow Kalpana Drive to answer or reject them.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -548,7 +568,71 @@ private struct PhoneSection: View {
         }
     }
 
-    private var connectionHeader: some View {
+    @ViewBuilder
+    private var pendingConnection: some View {
+        if let peer = model.iphoneBridge.pendingPeer {
+            HStack {
+                Text("Allow encrypted connection from \(peer.displayName)?").font(.headline)
+                Spacer()
+                Button("Reject") { model.rejectIPhoneConnection() }.buttonStyle(.bordered)
+                Button("Approve") { model.approveIPhoneConnection() }.buttonStyle(.borderedProminent)
+            }
+            .padding(14)
+            .background(Color.primary.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    @ViewBuilder
+    private var phoneContent: some View {
+        if model.iphoneConnected {
+            if model.drivingState.restrictsInteraction {
+                Text("Contact browsing and number entry are hidden while moving. Say “Call <name>”.")
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .padding()
+                Spacer()
+            } else {
+                ContactBrowser(model: model)
+            }
+        } else {
+            Spacer()
+            Image(systemName: "iphone.gen2.radiowaves.left.and.right")
+                .font(.system(size: 72, weight: .bold))
+            Text("Open Kalpana Drive Phone on your iPhone")
+                .font(.system(size: 34, weight: .bold))
+            Text("Keep Wi-Fi and Bluetooth enabled, choose this iPad in the iPhone app, then approve the connection here.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 760)
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private var manualDial: some View {
+        if !model.drivingState.restrictsInteraction {
+            HStack(spacing: 10) {
+                TextField("Dial number manually", text: $model.phoneNumberToDial)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.phonePad)
+                    .font(.title3)
+                Button {
+                    model.callPhoneNumber()
+                } label: {
+                    Label("Call", systemImage: "phone.fill")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+}
+
+private struct PhoneConnectionHeader: View {
+    @ObservedObject var model: DashboardViewModel
+
+    var body: some View {
         HStack {
             Image(systemName: model.iphoneConnected ? "iphone.gen2" : "iphone.gen2.slash").font(.title)
             VStack(alignment: .leading) {
@@ -556,11 +640,39 @@ private struct PhoneSection: View {
                 Text(model.iphoneBridge.statusText).foregroundStyle(.secondary)
             }
             Spacer()
+            if let battery = model.iphoneBridge.deviceState?.batteryPercent, model.iphoneConnected {
+                Text("\(battery)%").font(.headline)
+            }
             if model.iphoneConnected {
-                if let battery = model.iphoneBridge.deviceState?.batteryPercent {
-                    Text("\(battery)%").font(.headline)
+                Button("Disconnect") { model.disconnectIPhone() }.buttonStyle(.bordered)
+            }
+        }
+    }
+}
+
+private struct ContactBrowser: View {
+    @ObservedObject var model: DashboardViewModel
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                TextField("Search iPhone contacts", text: Binding(
+                    get: { model.contactQuery },
+                    set: { value in model.updateContactQuery(value) }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .font(.title3)
+                Button("Sync") { model.syncIPhone() }.buttonStyle(.bordered)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(model.filteredIPhoneContacts) { contact in
+                        ContactRow(contact: contact) { number in
+                            model.call(number: number)
+                        }
+                    }
                 }
-                Button("Disconnect", action: model.disconnectIPhone).buttonStyle(.bordered)
             }
         }
     }
@@ -582,7 +694,9 @@ private struct ContactRow: View {
             }
             Spacer()
             if let number = contact.phoneNumbers.first {
-                Button { call(number) } label: {
+                Button {
+                    call(number)
+                } label: {
                     Image(systemName: "phone.fill").frame(width: 52, height: 52)
                 }
                 .buttonStyle(.borderedProminent)
@@ -604,7 +718,7 @@ private struct SettingsSection: View {
                 Text("Kalpana Drive Settings").font(.system(size: 38, weight: .bold))
                 Picker("Appearance", selection: Binding(
                     get: { model.appearance },
-                    set: { model.setAppearance($0) }
+                    set: { value in model.setAppearance(value) }
                 )) {
                     Text("Day").tag(DriveAppearance.day)
                     Text("Night").tag(DriveAppearance.night)
@@ -617,11 +731,11 @@ private struct SettingsSection: View {
                     Text("iPhone companion").font(.headline)
                     Text(model.iphoneBridge.statusText).foregroundStyle(.secondary)
                     if model.iphoneConnected {
-                        Button("Sync iPhone now", action: model.syncIPhone).buttonStyle(.bordered)
+                        Button("Sync iPhone now") { model.syncIPhone() }.buttonStyle(.bordered)
                     }
                 }
 
-                Button("Open System Health", action: model.openDiagnostics)
+                Button("Open System Health") { model.openDiagnostics() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .disabled(model.drivingState.restrictsInteraction)
@@ -633,7 +747,7 @@ private struct SettingsSection: View {
 
 struct DriveCard<Content: View>: View {
     let insets: CGFloat
-    @ViewBuilder let content: Content
+    let content: Content
 
     init(insets: CGFloat = 18, @ViewBuilder content: () -> Content) {
         self.insets = insets
@@ -650,7 +764,7 @@ struct DriveCard<Content: View>: View {
     }
 }
 
-private struct DrivePalette {
+struct DrivePalette {
     let appearance: DriveAppearance
     var background: Color { appearance == .day ? .white : .black }
     var foreground: Color { appearance == .day ? .black : .white }
