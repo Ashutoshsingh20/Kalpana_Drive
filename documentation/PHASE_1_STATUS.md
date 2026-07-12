@@ -69,15 +69,19 @@ Still required before permanent trust:
 - Key revocation and re-pairing flow.
 - Payload size and rate limits.
 
-## Validation status
+## Automated validation
 
-- Core deterministic checks and iPad XCTest coverage exist.
-- GitHub Actions generates and attempts to compile both Apple targets on macOS.
-- The new iPhone companion and iPad bridge have not yet been verified together on physical devices.
+GitHub Actions completed successfully on the companion branch using Xcode 16.4:
 
-Physical testing still required:
+- Generated the iPad and iPhone Xcode projects from their XcodeGen definitions.
+- Passed the dependency-free core checks.
+- Compiled the iPad simulator application target.
+- Compiled the iPhone simulator companion target.
+- Preserved compiler logs as workflow artifacts.
 
-- Generate and sign both Xcode projects.
+## Physical-device validation still required
+
+- Generate and sign both Xcode projects with the user's Apple development team.
 - Install the iPhone companion on a physical iPhone.
 - Verify nearby discovery, approval, disconnect, and reconnect behavior.
 - Verify contact permission and contact relay.
@@ -90,7 +94,7 @@ Physical testing still required:
 
 ## Next production work
 
-- Fix any Apple-build CI failures and commit regenerated Xcode projects.
+- Commit freshly generated Xcode projects for direct opening without XcodeGen.
 - Add cryptographic device identity and revocation.
 - Add saved Home, College, Work, favourites, and recent-place repositories.
 - Add live route progress, step advancement, deviation detection, and recalculation.
