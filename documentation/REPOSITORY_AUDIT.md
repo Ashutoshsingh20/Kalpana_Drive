@@ -9,7 +9,7 @@ Current audit scope: PR #1, branch `agent/remove-simulated-services`.
 - `KalpanaDrivePhone` is a SwiftUI iPhone companion source target backed by Contacts, MediaPlayer, EventKit, Core Location, Network, and Multipeer Connectivity.
 - The iPad advertises a nearby companion service. The iPhone browses and requests a connection; the iPad must explicitly approve it.
 - Both Apple targets use typed versioned JSON envelopes, increasing sequence numbers, and replay/out-of-order rejection.
-- GitHub Actions generates both Xcode projects and attempts simulator builds on macOS.
+- GitHub Actions generates both Xcode projects and compiles both simulator targets on macOS.
 
 ## Implemented live functions
 
@@ -39,10 +39,11 @@ Current audit scope: PR #1, branch `agent/remove-simulated-services`.
 ## Current build state
 
 - Dependency-free core checks pass in GitHub Actions.
-- XcodeGen successfully generates both Apple projects in GitHub Actions.
-- Apple simulator compilation is enforced by `.github/workflows/apple-build.yml`.
-- The Apple build is not considered verified until the latest workflow completes successfully.
-- The committed iPad `.xcodeproj` predates the newest companion bridge source; build scripts regenerate it when necessary. A regenerated project should be committed after CI is green.
+- XcodeGen successfully generates both Apple projects.
+- The iPad simulator application target compiles with Xcode 16.4.
+- The iPhone simulator companion target compiles with Xcode 16.4.
+- Compiler logs are retained as workflow artifacts.
+- The committed iPad `.xcodeproj` predates some companion work; build scripts regenerate it when necessary. Fresh generated projects should be committed before release.
 
 ## Remaining functional gaps
 
@@ -94,10 +95,9 @@ A peer display name is not proof of identity. The current connection must not be
 
 ## Next repair order
 
-1. Fix Apple-build CI until both simulator targets compile.
-2. Commit regenerated Xcode projects and add iPhone unit tests.
-3. Add Keychain identities, signed pairing, revocation, payload limits, and rate limits.
-4. Add saved places and live navigation progress/rerouting.
-5. Add parking, trips, emergency mode, reminders, privacy, and diagnostics.
-6. Add physical-device iPad/iPhone testing in the Ignis.
-7. Build an Android companion only if broader notification and media-session access remains required.
+1. Commit freshly generated Xcode projects and add iPhone unit tests.
+2. Add Keychain identities, signed pairing, revocation, payload limits, and rate limits.
+3. Add saved places and live navigation progress/rerouting.
+4. Add parking, trips, emergency mode, reminders, privacy, and diagnostics.
+5. Add physical-device iPad/iPhone testing in the Ignis.
+6. Build an Android companion only if broader notification and media-session access remains required.
