@@ -19,6 +19,7 @@ if [ ! -d "$PROJECT" ]; then
 fi
 
 xcodebuild \
+  -quiet \
   -project "$PROJECT" \
   -scheme KalpanaDrivePhone \
   -configuration Debug \
