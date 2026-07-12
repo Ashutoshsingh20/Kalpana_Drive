@@ -1,5 +1,6 @@
-import SwiftUI
 import KalpanaDriveCore
+import MapKit
+import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var model: DashboardViewModel
@@ -11,11 +12,10 @@ struct DashboardView: View {
                 palette.background.ignoresSafeArea()
                 VStack(spacing: 16) {
                     statusBar
-                    if model.selectedSection == .home {
-                        dashboardGrid(compact: compact)
-                    } else {
-                        sectionPlaceholder
+                    if let error = model.errorMessage {
+                        errorBanner(error)
                     }
+                    sectionContent(compact: compact)
                     bottomControls
                 }
                 .padding(20)
@@ -37,45 +37,46 @@ struct DashboardView: View {
             }
             Spacer()
             statusPill(model.drivingState.rawValue, prominent: model.drivingState.restrictsInteraction)
+            statusPill("GPS: \(model.locationAccuracy)")
             statusPill("AUDIO: \(model.audioRoute.rawValue.uppercased())")
-            statusPill("PHONE: \(model.phone.state.rawValue.uppercased())")
+            statusPill(model.isOnline ? "ONLINE" : "OFFLINE", prominent: !model.isOnline)
         }
         .accessibilityElement(children: .combine)
     }
 
+    @ViewBuilder
+    private func sectionContent(compact: Bool) -> some View {
+        switch model.selectedSection {
+        case .home:
+            dashboardGrid(compact: compact)
+        case .map:
+            LiveMapCard(speedKPH: model.speedKPH, expanded: true)
+        case .music:
+            MusicSection(
+                media: model.media,
+                previous: model.previousTrack,
+                togglePlayback: model.togglePlayback,
+                next: model.nextTrack
+            )
+        case .phone:
+            PhoneSection(phone: model.phone)
+        case .settings:
+            SettingsSection(model: model)
+        }
+    }
+
     private func dashboardGrid(compact: Bool) -> some View {
         HStack(spacing: 16) {
-            PlaceholderMapCard(speedKPH: model.speedKPH, isMoving: model.drivingState == .moving)
+            LiveMapCard(speedKPH: model.speedKPH, expanded: false)
                 .frame(maxWidth: .infinity)
             VStack(spacing: 16) {
-                NavigationCard()
+                NavigationCard(route: model.activeRoute)
                 MediaCard(media: model.media, togglePlayback: model.togglePlayback)
                 PhoneCard(phone: model.phone)
             }
             .frame(width: compact ? 300 : 360)
         }
         .frame(maxHeight: .infinity)
-    }
-
-    private var sectionPlaceholder: some View {
-        DriveCard {
-            VStack(spacing: 18) {
-                Image(systemName: sectionIcon(model.selectedSection))
-                    .font(.system(size: 62, weight: .bold))
-                Text(model.selectedSection.rawValue)
-                    .font(.system(size: 40, weight: .bold))
-                Text(model.drivingState.restrictsInteraction ? "Detailed controls are unavailable while moving." : "This Phase 1 section is ready for provider integration.")
-                    .font(.title3)
-                    .multilineTextAlignment(.center)
-                if model.selectedSection == .settings {
-                    Button("Open System Health") { model.isDiagnosticsPresented = true }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(model.drivingState.restrictsInteraction)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
     }
 
     private var bottomControls: some View {
@@ -97,20 +98,37 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Open \(section.rawValue)")
             }
+
             Button(action: model.activateVoice) {
                 VStack(spacing: 5) {
                     Image(systemName: model.isVoiceActive ? "waveform" : "mic.fill")
-                    Text("Kalpana")
+                    Text(model.isVoiceActive ? "Listening" : "Kalpana")
                 }
                 .font(.headline)
-                .frame(width: 128, height: 64)
+                .frame(width: 138, height: 64)
                 .background(palette.foreground)
                 .foregroundStyle(palette.background)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Talk to Kalpana")
+            .accessibilityLabel(model.isVoiceActive ? "Stop listening" : "Talk to Kalpana")
         }
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(message)
+                .font(.headline)
+                .lineLimit(2)
+            Spacer()
+            Button("Dismiss", action: model.clearError)
+                .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .background(palette.card)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(palette.foreground, lineWidth: 2))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private func statusPill(_ text: String, prominent: Bool = false) -> some View {
@@ -137,56 +155,75 @@ struct DashboardView: View {
     private var palette: DrivePalette { DrivePalette(appearance: model.appearance) }
 }
 
-private struct PlaceholderMapCard: View {
+private struct LiveMapCard: View {
     let speedKPH: Int
-    let isMoving: Bool
+    let expanded: Bool
+    @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
 
     var body: some View {
-        DriveCard {
-            ZStack {
-                Canvas { context, size in
-                    let color = Color.primary.opacity(0.18)
-                    for offset in stride(from: -size.height, through: size.width, by: 90) {
-                        var path = Path()
-                        path.move(to: CGPoint(x: offset, y: 0))
-                        path.addLine(to: CGPoint(x: offset + size.height, y: size.height))
-                        context.stroke(path, with: .color(color), lineWidth: 3)
-                    }
+        DriveCard(insets: 0) {
+            ZStack(alignment: .topLeading) {
+                Map(position: $position) {
+                    UserAnnotation()
                 }
-                VStack {
-                    HStack {
-                        Label("MAP PREVIEW", systemImage: "location.fill")
-                            .font(.headline)
-                        Spacer()
-                        Text("SIMULATED")
+                .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
+                .mapControls {
+                    MapCompass()
+                    MapScaleView()
+                    MapUserLocationButton()
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    Label("LIVE MAP", systemImage: "location.fill")
+                        .font(.headline)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 46)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Spacer()
+                    VStack(spacing: 0) {
+                        Text("\(speedKPH)")
+                            .font(.system(size: expanded ? 58 : 48, weight: .black, design: .rounded))
+                        Text("KM/H")
                             .font(.caption.bold())
                     }
-                    Spacer()
-                    Text("\(speedKPH)")
-                        .font(.system(size: 112, weight: .black, design: .rounded))
-                    Text("KM/H • GPS")
-                        .font(.title2.bold())
-                    Spacer()
-                    Text(isMoving ? "Moving simulation active" : "Parked simulation active")
-                        .font(.headline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .padding(22)
+                .padding(14)
             }
         }
     }
 }
 
 private struct NavigationCard: View {
+    let route: RouteSnapshot?
+
     var body: some View {
         DriveCard {
             VStack(alignment: .leading, spacing: 12) {
                 Label("NAVIGATION", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
                     .font(.headline)
-                Text("No active route")
-                    .font(.title2.bold())
-                Text("Home • College • Work")
+                if let route, route.isActive {
+                    Text(route.nextInstruction)
+                        .font(.title2.bold())
+                        .lineLimit(2)
+                    HStack {
+                        Text(route.destination.name)
+                        Spacer()
+                        Text(route.expectedArrival, format: .dateTime.hour().minute())
+                    }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                } else {
+                    Text("No active route")
+                        .font(.title2.bold())
+                    Text("Open Map and select a real destination to begin navigation.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -200,14 +237,18 @@ private struct MediaCard: View {
     var body: some View {
         DriveCard {
             HStack(spacing: 16) {
-                Image(systemName: "music.note")
+                Image(systemName: media.title.isEmpty ? "music.note.slash" : "music.note")
                     .font(.system(size: 34, weight: .bold))
                     .frame(width: 64, height: 64)
                     .background(Color.primary.opacity(0.12))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(media.title).font(.headline).lineLimit(1)
-                    Text(media.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                    Text("SIMULATED MEDIA").font(.caption2.bold())
+                    Text(media.title.isEmpty ? "Nothing playing" : media.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(media.title.isEmpty ? "Start playback in Apple Music" : media.artist)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 Spacer()
                 Button(action: togglePlayback) {
@@ -226,13 +267,18 @@ private struct MediaCard: View {
 
 private struct PhoneCard: View {
     let phone: PhoneConnectionSnapshot
+
     var body: some View {
         DriveCard {
             HStack {
-                Image(systemName: "iphone.gen2.slash").font(.title)
-                VStack(alignment: .leading) {
-                    Text("Phone disconnected").font(.headline)
-                    Text("Companion pairing begins in Phase 2").font(.caption).foregroundStyle(.secondary)
+                Image(systemName: phone.state == .connected ? "iphone.gen2" : "iphone.gen2.slash")
+                    .font(.title)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(phone.deviceName ?? "No phone paired")
+                        .font(.headline)
+                    Text(phone.state == .unavailable ? "A real companion connection is not installed." : phone.state.rawValue.capitalized)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -240,12 +286,110 @@ private struct PhoneCard: View {
     }
 }
 
+private struct MusicSection: View {
+    let media: MediaSnapshot
+    let previous: () -> Void
+    let togglePlayback: () -> Void
+    let next: () -> Void
+
+    var body: some View {
+        DriveCard {
+            VStack(spacing: 28) {
+                Image(systemName: media.title.isEmpty ? "music.note.slash" : "music.note")
+                    .font(.system(size: 86, weight: .bold))
+                Text(media.title.isEmpty ? "Nothing playing" : media.title)
+                    .font(.system(size: 38, weight: .bold))
+                Text(media.title.isEmpty ? "Start playback in Apple Music on this iPad." : media.artist)
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 28) {
+                    mediaButton("backward.end.fill", action: previous)
+                    mediaButton(media.isPlaying ? "pause.fill" : "play.fill", action: togglePlayback)
+                    mediaButton("forward.end.fill", action: next)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func mediaButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 38, weight: .bold))
+                .frame(width: 86, height: 86)
+                .background(Color.primary)
+                .foregroundStyle(Color(uiColor: .systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct PhoneSection: View {
+    let phone: PhoneConnectionSnapshot
+
+    var body: some View {
+        DriveCard {
+            VStack(spacing: 22) {
+                Image(systemName: "iphone.gen2.slash")
+                    .font(.system(size: 76, weight: .bold))
+                Text("No phone companion paired")
+                    .font(.system(size: 36, weight: .bold))
+                Text("Kalpana Drive is not presenting fabricated call, message, or notification controls. This screen will activate only after a real authenticated companion service is implemented and paired.")
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 760)
+                Text("Connection state: \(phone.state.rawValue.uppercased())")
+                    .font(.headline)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+private struct SettingsSection: View {
+    @ObservedObject var model: DashboardViewModel
+
+    var body: some View {
+        DriveCard {
+            VStack(spacing: 24) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 72, weight: .bold))
+                Text("Kalpana Drive Settings")
+                    .font(.system(size: 38, weight: .bold))
+                Picker("Appearance", selection: $model.appearance) {
+                    Text("Day").tag(DriveAppearance.day)
+                    Text("Night").tag(DriveAppearance.night)
+                    Text("High sunlight").tag(DriveAppearance.highSunlight)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 620)
+                Button("Open System Health") {
+                    model.isDiagnosticsPresented = true
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(model.drivingState.restrictsInteraction)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
 struct DriveCard<Content: View>: View {
+    let insets: CGFloat
     @ViewBuilder let content: Content
+
+    init(insets: CGFloat = 18, @ViewBuilder content: () -> Content) {
+        self.insets = insets
+        self.content = content()
+    }
+
     var body: some View {
         content
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(insets)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.07))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.8), lineWidth: 2))
             .clipShape(RoundedRectangle(cornerRadius: 12))
