@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 @preconcurrency import MultipeerConnectivity
 import UIKit
@@ -179,11 +180,6 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
         advertiser.startAdvertisingPeer()
     }
 
-    deinit {
-        advertiser.stopAdvertisingPeer()
-        session.disconnect()
-    }
-
     func approvePendingConnection() {
         guard let pendingInvitation else { return }
         pendingInvitation.handler(true, session)
@@ -291,7 +287,7 @@ final class iPhoneCompanionBridge: NSObject, ObservableObject {
     }
 }
 
-extension iPhoneCompanionBridge: @preconcurrency MCNearbyServiceAdvertiserDelegate {
+extension iPhoneCompanionBridge: MCNearbyServiceAdvertiserDelegate {
     nonisolated func advertiser(
         _ advertiser: MCNearbyServiceAdvertiser,
         didReceiveInvitationFromPeer peerID: MCPeerID,
@@ -316,7 +312,7 @@ extension iPhoneCompanionBridge: @preconcurrency MCNearbyServiceAdvertiserDelega
     }
 }
 
-extension iPhoneCompanionBridge: @preconcurrency MCSessionDelegate {
+extension iPhoneCompanionBridge: MCSessionDelegate {
     nonisolated func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         Task { @MainActor [weak self] in
             guard let self else { return }
