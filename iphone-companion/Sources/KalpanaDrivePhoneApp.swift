@@ -4,6 +4,7 @@ import EventKit
 import MediaPlayer
 import MultipeerConnectivity
 import SwiftUI
+import UIKit
 
 @main
 struct KalpanaDrivePhoneApp: App {
@@ -86,6 +87,10 @@ final class PhoneCompanionViewModel: ObservableObject {
 
     func syncAllAvailableData() {
         sendHello()
+        sendApprovedData()
+    }
+
+    private func sendApprovedData() {
         sendDeviceState()
         if contactsService.authorizationStatus == .authorized { sendContacts() }
         if musicService.authorizationStatus == .authorized { sendMediaState() }
@@ -153,7 +158,7 @@ final class PhoneCompanionViewModel: ObservableObject {
                 send(.error, payload: CompanionErrorPayload(code: "invalidMediaCommand", message: error.localizedDescription))
             }
         case .deviceHello:
-            syncAllAvailableData()
+            sendApprovedData()
         default:
             break
         }
@@ -254,7 +259,6 @@ struct CompanionRootView: View {
         case .denied: "Denied"
         case .restricted: "Restricted"
         case .notDetermined: "Not requested"
-        case .limited: "Limited"
         @unknown default: "Unknown"
         }
     }
