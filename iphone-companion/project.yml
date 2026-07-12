@@ -1,0 +1,30 @@
+name: KalpanaDrivePhone
+options:
+  bundleIdPrefix: com.ashutoshsingh
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    TARGETED_DEVICE_FAMILY: "1"
+    SUPPORTS_MACCATALYST: NO
+
+targets:
+  KalpanaDrivePhone:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: KalpanaDrivePhone/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ashutoshsingh.kalpanadrive.phone
+        PRODUCT_NAME: Kalpana Drive Phone
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: "87V22WR64U"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_STRICT_CONCURRENCY: complete
+    scheme:
+      gatherCoverageData: false
