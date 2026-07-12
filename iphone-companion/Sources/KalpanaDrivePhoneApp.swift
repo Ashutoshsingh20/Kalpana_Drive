@@ -1,4 +1,3 @@
-import Combine
 import Contacts
 import EventKit
 import MediaPlayer
@@ -19,7 +18,6 @@ struct KalpanaDrivePhoneApp: App {
 
 @MainActor
 final class PhoneCompanionViewModel: ObservableObject {
-    @Published private(set) var statusMessage = "Preparing companion"
     @Published private(set) var lastSyncMessage: String?
     @Published var locationSharingEnabled = false
 
@@ -30,31 +28,18 @@ final class PhoneCompanionViewModel: ObservableObject {
     let healthService = PhoneHealthService()
     let connection = NearbyPhoneConnection()
 
-    private var cancellables = Set<AnyCancellable>()
     private var heartbeatTask: Task<Void, Never>?
 
     init() {
         connection.onEnvelope = { [weak self] envelope in
             self?.handle(envelope)
         }
-        Publishers.MergeMany([
-            contactsService.objectWillChange.eraseToAnyPublisher(),
-            musicService.objectWillChange.eraseToAnyPublisher(),
-            locationService.objectWillChange.eraseToAnyPublisher(),
-            calendarService.objectWillChange.eraseToAnyPublisher(),
-            healthService.objectWillChange.eraseToAnyPublisher(),
-            connection.objectWillChange.eraseToAnyPublisher()
-        ])
-        .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in
-            self?.objectWillChange.send()
-            self?.statusMessage = self?.connection.statusText ?? "Unavailable"
-        }
-        .store(in: &cancellables)
         startHeartbeat()
     }
 
-    deinit { heartbeatTask?.cancel() }
+    deinit {
+        heartbeatTask?.cancel()
+    }
 
     func connect(to peer: MCPeerID) {
         connection.connect(to: peer)
@@ -82,7 +67,9 @@ final class PhoneCompanionViewModel: ObservableObject {
     func setLocationSharing(_ enabled: Bool) {
         locationSharingEnabled = enabled
         locationService.setSharingEnabled(enabled)
-        if enabled { sendLocation() }
+        if enabled {
+            sendLocation()
+        }
     }
 
     func syncAllAvailableData() {
@@ -92,22 +79,29 @@ final class PhoneCompanionViewModel: ObservableObject {
 
     private func sendApprovedData() {
         sendDeviceState()
-        if contactsService.authorizationStatus == .authorized { sendContacts() }
-        if musicService.authorizationStatus == .authorized { sendMediaState() }
-        if calendarService.authorizationStatus == .fullAccess || calendarService.authorizationStatus == .authorized {
+        if contactsService.authorizationStatus == .authorized {
+            sendContacts()
+        }
+        if musicService.authorizationStatus == .authorized {
+            sendMediaState()
+        }
+        if calendarService.authorizationStatus == .fullAccess {
             sendCalendarDestinations()
         }
-        if locationSharingEnabled { sendLocation() }
+        if locationSharingEnabled {
+            sendLocation()
+        }
     }
 
     private func sendHello() {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-        send(.deviceHello, payload: DeviceHello(
+        let hello = DeviceHello(
             name: UIDevice.current.name,
             platform: "iPhone",
             appVersion: version,
             capabilities: ["contacts", "appleMusic", "calendarDestinations", "location", "deviceHealth"]
-        ))
+        )
+        send(.deviceHello, payload: hello)
     }
 
     private func sendDeviceState() {
@@ -129,8 +123,8 @@ final class PhoneCompanionViewModel: ObservableObject {
     }
 
     private func sendLocation() {
-        guard let state = locationService.state else { return }
-        send(.locationState, payload: state)
+        guard let location = locationService.state else { return }
+        send(.locationState, payload: location)
     }
 
     private func send<T: Encodable>(_ type: MessageType, payload: T) {
@@ -144,23 +138,33 @@ final class PhoneCompanionViewModel: ObservableObject {
 
     private func handle(_ envelope: CompanionEnvelope) {
         guard envelope.version == 1 else {
-            send(.error, payload: CompanionErrorPayload(code: "unsupportedVersion", message: "Unsupported protocol version \(envelope.version)."))
+            let error = CompanionErrorPayload(
+                code: "unsupportedVersion",
+                message: "Unsupported protocol version \(envelope.version)."
+            )
+            send(.error, payload: error)
             return
         }
+
         switch envelope.type {
         case .mediaCommand:
-            do {
-                let request = try envelope.decodePayload(MediaCommandRequest.self)
-                let result = musicService.execute(request.command)
-                send(.mediaCommandResult, payload: result)
-                sendMediaState()
-            } catch {
-                send(.error, payload: CompanionErrorPayload(code: "invalidMediaCommand", message: error.localizedDescription))
-            }
+            handleMediaCommand(envelope)
         case .deviceHello:
             sendApprovedData()
         default:
             break
+        }
+    }
+
+    private func handleMediaCommand(_ envelope: CompanionEnvelope) {
+        do {
+            let request = try envelope.decodePayload(MediaCommandRequest.self)
+            let result = musicService.execute(request.command)
+            send(.mediaCommandResult, payload: result)
+            sendMediaState()
+        } catch {
+            let payload = CompanionErrorPayload(code: "invalidMediaCommand", message: error.localizedDescription)
+            send(.error, payload: payload)
         }
     }
 
@@ -169,10 +173,14 @@ final class PhoneCompanionViewModel: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self, self.connection.connectedPeer != nil else { continue }
+                self.healthService.refresh()
                 self.send(.heartbeat, payload: self.healthService.state)
-                self.sendDeviceState()
-                if self.musicService.authorizationStatus == .authorized { self.sendMediaState() }
-                if self.locationSharingEnabled { self.sendLocation() }
+                if self.musicService.authorizationStatus == .authorized {
+                    self.sendMediaState()
+                }
+                if self.locationSharingEnabled {
+                    self.sendLocation()
+                }
             }
         }
     }
@@ -184,87 +192,104 @@ struct CompanionRootView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Nearby iPad") {
-                    Text(model.connection.statusText)
-                    if let connected = model.connection.connectedPeer {
-                        LabeledContent("Connected", value: connected.displayName)
-                        Button("Sync now", action: model.syncAllAvailableData)
-                    } else if model.connection.discoveredPeers.isEmpty {
-                        Text("Open Kalpana Drive on the iPad and keep both devices nearby with Wi-Fi and Bluetooth enabled.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(model.connection.discoveredPeers, id: \.self) { peer in
-                            Button("Connect to \(peer.displayName)") { model.connect(to: peer) }
-                        }
-                    }
-                    if let error = model.connection.lastError {
-                        Text(error).foregroundStyle(.red)
-                    }
-                }
-
-                Section("Contacts") {
-                    LabeledContent("Permission", value: contactsStatus)
-                    LabeledContent("Available contacts", value: "\(model.contactsService.contacts.count)")
-                    Button("Allow contacts and sync") {
-                        Task { await model.enableContacts() }
-                    }
-                }
-
-                Section("Apple Music on this iPhone") {
-                    LabeledContent("Permission", value: musicStatus)
-                    LabeledContent("Track", value: model.musicService.state.title ?? "Nothing playing")
-                    LabeledContent("Artist", value: model.musicService.state.artist ?? "Unavailable")
-                    Button("Allow Apple Music and sync") {
-                        Task { await model.enableAppleMusic() }
-                    }
-                    Text("This controls the iPhone Apple Music system player. iOS does not expose arbitrary Spotify or YouTube Music sessions to Kalpana Drive.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Location") {
-                    Toggle("Share location with paired iPad", isOn: Binding(
-                        get: { model.locationSharingEnabled },
-                        set: model.setLocationSharing
-                    ))
-                    Text("Location is shared only while this option is enabled and the companion is connected.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Calendar destinations") {
-                    LabeledContent("Permission", value: calendarStatus)
-                    LabeledContent("Upcoming locations", value: "\(model.calendarService.destinations.count)")
-                    Button("Allow calendar and sync destinations") {
-                        Task { await model.enableCalendar() }
-                    }
-                }
-
-                Section("Calls") {
-                    Text("Kalpana Drive can share contacts and request an outgoing call. Apple does not provide a public API for this companion to answer, reject, or inspect native cellular calls. Incoming calls remain in Apple's Phone/Continuity interface.")
-                        .foregroundStyle(.secondary)
-                }
-
+                ConnectionSection(model: model, connection: model.connection)
+                ContactsSection(model: model, service: model.contactsService)
+                MusicPermissionSection(model: model, service: model.musicService)
+                LocationSection(model: model, service: model.locationService)
+                CalendarSection(model: model, service: model.calendarService)
+                CallsLimitationSection()
                 if let message = model.lastSyncMessage {
-                    Section("Last operation") { Text(message) }
+                    Section("Last operation") {
+                        Text(message)
+                    }
                 }
             }
             .navigationTitle("Kalpana Drive Phone")
         }
     }
+}
+
+private struct ConnectionSection: View {
+    @ObservedObject var model: PhoneCompanionViewModel
+    @ObservedObject var connection: NearbyPhoneConnection
+
+    var body: some View {
+        Section("Nearby iPad") {
+            Text(connection.statusText)
+            if let peer = connection.connectedPeer {
+                LabeledContent("Connected", value: peer.displayName)
+                Button("Sync now") {
+                    model.syncAllAvailableData()
+                }
+            } else if connection.discoveredPeers.isEmpty {
+                Text("Open Kalpana Drive on the iPad and keep Wi-Fi and Bluetooth enabled on both devices.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(connection.discoveredPeers, id: \.self) { peer in
+                    Button("Connect to \(peer.displayName)") {
+                        model.connect(to: peer)
+                    }
+                }
+            }
+            if let error = connection.lastError {
+                Text(error).foregroundStyle(.red)
+            }
+        }
+    }
+}
+
+private struct ContactsSection: View {
+    @ObservedObject var model: PhoneCompanionViewModel
+    @ObservedObject var service: ContactsService
+
+    var body: some View {
+        Section("Contacts") {
+            LabeledContent("Permission", value: contactsStatus)
+            LabeledContent("Available contacts", value: String(service.contacts.count))
+            Button("Allow contacts and sync") {
+                Task {
+                    await model.enableContacts()
+                }
+            }
+            if let error = service.lastError {
+                Text(error).foregroundStyle(.red)
+            }
+        }
+    }
 
     private var contactsStatus: String {
-        switch model.contactsService.authorizationStatus {
+        switch service.authorizationStatus {
         case .authorized: "Allowed"
         case .denied: "Denied"
         case .restricted: "Restricted"
         case .notDetermined: "Not requested"
         @unknown default: "Unknown"
+        }
+    }
+}
+
+private struct MusicPermissionSection: View {
+    @ObservedObject var model: PhoneCompanionViewModel
+    @ObservedObject var service: AppleMusicService
+
+    var body: some View {
+        Section("Apple Music on this iPhone") {
+            LabeledContent("Permission", value: musicStatus)
+            LabeledContent("Track", value: service.state.title ?? "Nothing playing")
+            LabeledContent("Artist", value: service.state.artist ?? "Unavailable")
+            Button("Allow Apple Music and sync") {
+                Task {
+                    await model.enableAppleMusic()
+                }
+            }
+            Text("This controls the iPhone Apple Music system player. iOS does not expose arbitrary Spotify or YouTube Music sessions to Kalpana Drive.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
     private var musicStatus: String {
-        switch model.musicService.authorizationStatus {
+        switch service.authorizationStatus {
         case .authorized: "Allowed"
         case .denied: "Denied"
         case .restricted: "Restricted"
@@ -272,15 +297,67 @@ struct CompanionRootView: View {
         @unknown default: "Unknown"
         }
     }
+}
+
+private struct LocationSection: View {
+    @ObservedObject var model: PhoneCompanionViewModel
+    @ObservedObject var service: PhoneLocationService
+
+    var body: some View {
+        Section("Location") {
+            Toggle(
+                "Share location with paired iPad",
+                isOn: Binding(
+                    get: { model.locationSharingEnabled },
+                    set: { enabled in model.setLocationSharing(enabled) }
+                )
+            )
+            Text("Location is shared only while this option is enabled and the companion is connected.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let error = service.lastError {
+                Text(error).foregroundStyle(.red)
+            }
+        }
+    }
+}
+
+private struct CalendarSection: View {
+    @ObservedObject var model: PhoneCompanionViewModel
+    @ObservedObject var service: CalendarDestinationService
+
+    var body: some View {
+        Section("Calendar destinations") {
+            LabeledContent("Permission", value: calendarStatus)
+            LabeledContent("Upcoming locations", value: String(service.destinations.count))
+            Button("Allow calendar and sync destinations") {
+                Task {
+                    await model.enableCalendar()
+                }
+            }
+            if let error = service.lastError {
+                Text(error).foregroundStyle(.red)
+            }
+        }
+    }
 
     private var calendarStatus: String {
-        switch model.calendarService.authorizationStatus {
-        case .fullAccess, .authorized: "Allowed"
+        switch service.authorizationStatus {
+        case .fullAccess: "Allowed"
         case .writeOnly: "Write only"
         case .denied: "Denied"
         case .restricted: "Restricted"
         case .notDetermined: "Not requested"
         @unknown default: "Unknown"
+        }
+    }
+}
+
+private struct CallsLimitationSection: View {
+    var body: some View {
+        Section("Calls") {
+            Text("Kalpana Drive can share contacts and request an outgoing call. Apple does not provide a public API for this companion to answer, reject, or inspect native cellular calls. Incoming calls remain in Apple’s Phone/Continuity interface.")
+                .foregroundStyle(.secondary)
         }
     }
 }
