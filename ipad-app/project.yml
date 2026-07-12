@@ -39,6 +39,9 @@ targets:
         NSLocationWhenInUseUsageDescription: Kalpana Drive uses the iPad's location for the live map, driving speed, route guidance, trip recording, and parking location.
         NSMicrophoneUsageDescription: Kalpana Drive uses the microphone only when you activate voice control.
         NSSpeechRecognitionUsageDescription: Kalpana Drive converts your spoken driving commands into text on request.
+        NSLocalNetworkUsageDescription: Kalpana Drive connects directly to your nearby iPhone companion for approved contacts, Apple Music control, destinations, location, and device health.
+        NSBonjourServices:
+          - _kalpana-drive._tcp
         UIApplicationSupportsIndirectInputEvents: true
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations~ipad:
@@ -49,7 +52,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ashutoshsingh.kalpanadrive
         PRODUCT_NAME: Kalpana Drive
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: "BUR97UNA96"
+        DEVELOPMENT_TEAM: "87V22WR64U"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_STRICT_CONCURRENCY: complete
     scheme:
