@@ -10,6 +10,10 @@ public enum DrivingAction: String, CaseIterable, Sendable {
     case useVoice
     case typeDestination
     case browseContent
+    case browseContacts
+    case typePhoneNumber
+    case placeCall
+    case openExternalMedia
     case manageDevices
     case emergency
 }
@@ -45,11 +49,11 @@ public struct DrivingSafetyPolicy: Sendable {
 
     public func classification(for action: DrivingAction) -> SafetyClassification {
         switch action {
-        case .openDashboard, .openMap, .openMusic, .openPhone, .controlMedia, .useVoice:
+        case .openDashboard, .openMap, .openMusic, .openPhone, .controlMedia, .useVoice, .placeCall:
             .alwaysAllowed
-        case .typeDestination, .browseContent:
+        case .typeDestination, .browseContent, .browseContacts:
             .voiceOnlyWhileMoving
-        case .openSettings, .manageDevices:
+        case .openSettings, .typePhoneNumber, .openExternalMedia, .manageDevices:
             .parkedOnly
         case .emergency:
             .emergency
