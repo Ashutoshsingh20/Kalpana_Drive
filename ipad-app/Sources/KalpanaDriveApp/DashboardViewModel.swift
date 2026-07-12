@@ -13,6 +13,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var speedKPH = 0
     @Published private(set) var media: MediaSnapshot = .unavailable
     @Published var phoneNumberToDial = ""
+    @Published var contactQuery = ""
     @Published private(set) var audioRoute: AudioRoute = .unknown
     @Published private(set) var activeRoute: RouteSnapshot?
     @Published private(set) var mapRoute: MKRoute?
@@ -34,11 +35,12 @@ final class DashboardViewModel: ObservableObject {
     @Published var isVoiceActive = false
     @Published var isDiagnosticsPresented = false
 
+    let iphoneBridge = iPhoneCompanionBridge()
+
     private var stateMachine = DrivingStateMachine()
     private let safetyPolicy = DrivingSafetyPolicy()
     private let locationService = LiveLocationService()
     private let mediaService = LiveMediaService()
-
     private let audioService = LiveAudioRouteService()
     private let connectivityService = ConnectivityService()
     private let navigationService = MapKitNavigationService()
@@ -46,6 +48,21 @@ final class DashboardViewModel: ObservableObject {
 
     private var clockTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+
+    var iphoneConnected: Bool { iphoneBridge.connectedPeer != nil }
+    var iphoneMedia: PhoneBridgeMediaState { iphoneBridge.mediaState }
+    var iphoneContacts: [PhoneBridgeContact] { iphoneBridge.contacts }
+
+    var filteredIPhoneContacts: [PhoneBridgeContact] {
+        let query = contactQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return Array(iphoneBridge.contacts.prefix(50)) }
+        return iphoneBridge.contacts.filter {
+            $0.displayName.localizedCaseInsensitiveContains(query) ||
+            $0.phoneNumbers.contains(where: { $0.localizedCaseInsensitiveContains(query) })
+        }
+        .prefix(50)
+        .map { $0 }
+    }
 
     init() {
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -78,8 +95,23 @@ final class DashboardViewModel: ObservableObject {
         refreshLiveState()
     }
 
+    func toggleIPhonePlayback() {
+        guard authorize(.controlMedia, source: .touch), iphoneConnected else { return }
+        iphoneBridge.sendMediaCommand(iphoneMedia.isPlaying ? .pause : .play)
+    }
+
+    func previousIPhoneTrack() {
+        guard authorize(.controlMedia, source: .touch), iphoneConnected else { return }
+        iphoneBridge.sendMediaCommand(.previous)
+    }
+
+    func nextIPhoneTrack() {
+        guard authorize(.controlMedia, source: .touch), iphoneConnected else { return }
+        iphoneBridge.sendMediaCommand(.next)
+    }
+
     func openYouTubeMusic() {
-        guard authorize(.openMusic, source: .touch),
+        guard authorize(.openExternalMedia, source: .touch),
               let url = URL(string: "https://music.youtube.com") else { return }
         Task {
             let opened = await UIApplication.shared.open(url)
@@ -157,20 +189,59 @@ final class DashboardViewModel: ObservableObject {
         navigationService.cancelRoute()
     }
 
-    func callPhoneNumber() {
-        guard authorize(.openPhone, source: .touch) else { return }
-        let digits = phoneNumberToDial.filter { $0.isNumber || $0 == "+" }
-        guard !digits.isEmpty, let url = URL(string: "tel://\(digits)") else {
-            errorMessage = "Please enter a valid phone number."
+    func updateContactQuery(_ query: String) {
+        guard authorize(.browseContacts, source: .touch) else {
+            contactQuery = ""
             return
         }
+        contactQuery = query
+    }
+
+    func callPhoneNumber() {
+        guard authorize(.typePhoneNumber, source: .touch) else { return }
+        let number = phoneNumberToDial
         phoneNumberToDial = ""
+        call(number: number)
+    }
+
+    func call(number: String) {
+        guard authorize(.placeCall, source: .touch) else { return }
+        let normalized = number.filter { $0.isNumber || $0 == "+" }
+        guard !normalized.isEmpty,
+              let url = URL(string: "tel://\(normalized)"),
+              UIApplication.shared.canOpenURL(url) else {
+            errorMessage = "Calling is not available on this iPad. Enable Calls from iPhone/Continuity or use a cellular-capable calling configuration."
+            return
+        }
         Task {
             let opened = await UIApplication.shared.open(url)
             if !opened {
-                errorMessage = "Your iPad cannot make calls right now. You may need to enable Continuity with an iPhone or use a cellular iPad."
+                errorMessage = "The system call interface could not be opened."
             }
         }
+    }
+
+    func approveIPhoneConnection() {
+        guard authorize(.manageDevices, source: .touch) else { return }
+        iphoneBridge.approvePendingConnection()
+    }
+
+    func rejectIPhoneConnection() {
+        guard authorize(.manageDevices, source: .touch) else { return }
+        iphoneBridge.rejectPendingConnection()
+    }
+
+    func disconnectIPhone() {
+        guard authorize(.manageDevices, source: .touch) else { return }
+        iphoneBridge.disconnect()
+    }
+
+    func syncIPhone() {
+        guard iphoneConnected else {
+            errorMessage = "No iPhone companion is connected."
+            return
+        }
+        iphoneBridge.requestFullSync()
     }
 
     @discardableResult
@@ -187,20 +258,40 @@ final class DashboardViewModel: ObservableObject {
         switch command {
         case "play music", "music chalao":
             guard authorize(.controlMedia, source: .voice) else { return }
-            mediaService.execute(.play)
-            response = "Playing the current system music queue."
+            if iphoneConnected {
+                iphoneBridge.sendMediaCommand(.play)
+                response = "Playing Apple Music on the connected iPhone."
+            } else {
+                mediaService.execute(.play)
+                response = "Playing the current iPad Apple Music queue."
+            }
         case "pause music", "music pause karo":
             guard authorize(.controlMedia, source: .voice) else { return }
-            mediaService.execute(.pause)
-            response = "Music paused."
+            if iphoneConnected {
+                iphoneBridge.sendMediaCommand(.pause)
+                response = "Pausing Apple Music on the connected iPhone."
+            } else {
+                mediaService.execute(.pause)
+                response = "Music paused on the iPad."
+            }
         case "next song", "next track", "agla gana":
             guard authorize(.controlMedia, source: .voice) else { return }
-            mediaService.execute(.next)
-            response = "Skipping to the next track."
+            if iphoneConnected {
+                iphoneBridge.sendMediaCommand(.next)
+                response = "Skipping the iPhone Apple Music track."
+            } else {
+                mediaService.execute(.next)
+                response = "Skipping the iPad Apple Music track."
+            }
         case "previous song", "previous track", "pichla gana":
             guard authorize(.controlMedia, source: .voice) else { return }
-            mediaService.execute(.previous)
-            response = "Returning to the previous track."
+            if iphoneConnected {
+                iphoneBridge.sendMediaCommand(.previous)
+                response = "Returning to the previous iPhone Apple Music track."
+            } else {
+                mediaService.execute(.previous)
+                response = "Returning to the previous iPad Apple Music track."
+            }
         case "what is my eta", "eta kya hai":
             if let route = activeRoute {
                 response = "Your estimated arrival is \(route.expectedArrival.formatted(date: .omitted, time: .shortened))."
@@ -210,7 +301,18 @@ final class DashboardViewModel: ObservableObject {
         case "navigate home", "take me home", "ghar chalo":
             response = "Home is not configured. Add a real home address before using this command."
         default:
-            response = "That command is not supported yet."
+            if command.hasPrefix("call ") {
+                let name = String(command.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
+                let matches = iphoneBridge.contacts.filter { $0.displayName.localizedCaseInsensitiveContains(name) }
+                if let contact = matches.first, let number = contact.phoneNumbers.first {
+                    call(number: number)
+                    response = "Opening the system call interface for \(contact.displayName)."
+                } else {
+                    response = "I could not find that person in the contacts shared by your iPhone."
+                }
+            } else {
+                response = "That command is not supported yet."
+            }
         }
 
         voiceMessage = response
@@ -225,7 +327,8 @@ final class DashboardViewModel: ObservableObject {
             audioService.objectWillChange.eraseToAnyPublisher(),
             connectivityService.objectWillChange.eraseToAnyPublisher(),
             navigationService.objectWillChange.eraseToAnyPublisher(),
-            speechService.objectWillChange.eraseToAnyPublisher()
+            speechService.objectWillChange.eraseToAnyPublisher(),
+            iphoneBridge.objectWillChange.eraseToAnyPublisher()
         ])
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
@@ -289,7 +392,7 @@ final class DashboardViewModel: ObservableObject {
 
         thermalStatus = thermalDescription(ProcessInfo.processInfo.thermalState)
 
-        errorMessage = locationService.lastError ?? speechService.lastError ?? navigationService.lastError
+        errorMessage = locationService.lastError ?? speechService.lastError ?? navigationService.lastError ?? iphoneBridge.lastError
 
         drivingState = stateMachine.update(
             DrivingContext(
