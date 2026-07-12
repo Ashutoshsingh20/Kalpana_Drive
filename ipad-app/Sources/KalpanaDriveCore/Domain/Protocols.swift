@@ -21,7 +21,12 @@ public protocol DestinationSearchProvider: Sendable {
     func search(_ query: String) async throws -> [Destination]
 }
 
-public enum MediaCommand: String, Codable, Sendable { case play, pause, previous, next }
+public enum MediaCommand: String, Codable, Sendable {
+    case play
+    case pause
+    case previous
+    case next
+}
 
 public protocol MediaSource: Sendable {
     var displayName: String { get }
@@ -32,7 +37,11 @@ public protocol MediaController: Sendable {
     func execute(_ command: MediaCommand) async throws
 }
 
-public enum AudioRoute: String, Codable, Sendable { case bluetooth, ipadSpeaker, unknown }
+public enum AudioRoute: String, Codable, Sendable {
+    case bluetooth
+    case ipadSpeaker
+    case unknown
+}
 
 public protocol AudioRouteManager: Sendable {
     func currentRoute() async -> AudioRoute
@@ -43,20 +52,3 @@ public protocol PhoneConnection: Sendable {
     func reconnect() async throws
     func disconnect() async
 }
-
-public protocol SpeechCommandRouter: Sendable {
-    func route(_ transcript: String, state: DrivingState) async -> VoiceResponse
-}
-
-public struct VoiceResponse: Equatable, Sendable {
-    public var spokenText: String
-    public var visualText: String
-    public var requiresConfirmation: Bool
-
-    public init(spokenText: String, visualText: String, requiresConfirmation: Bool = false) {
-        self.spokenText = spokenText
-        self.visualText = visualText
-        self.requiresConfirmation = requiresConfirmation
-    }
-}
-
