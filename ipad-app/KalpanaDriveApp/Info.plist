@@ -28,6 +28,12 @@
 	<string>Kalpana Drive uses the microphone only when you activate voice control.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Kalpana Drive converts your spoken driving commands into text on request.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kalpana Drive connects directly to your nearby iPhone companion for approved contacts, Apple Music control, destinations, location, and device health.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_kalpana-drive._tcp</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIRequiresFullScreen</key>
