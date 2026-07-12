@@ -4,7 +4,7 @@ import CoreLocation
 import EventKit
 import Foundation
 import MediaPlayer
-import MultipeerConnectivity
+@preconcurrency import MultipeerConnectivity
 import Network
 import UIKit
 
@@ -23,14 +23,14 @@ final class ContactsService: ObservableObject {
                 authorizationStatus = CNContactStore.authorizationStatus(for: .contacts)
             }
             guard authorizationStatus == .authorized else {
-                lastError = "Contacts permission is required before contacts can be shared with the paired iPad."
                 contacts = []
+                lastError = "Contacts permission is required before contacts can be shared with the paired iPad."
                 return
             }
             try loadContacts()
         } catch {
-            lastError = error.localizedDescription
             contacts = []
+            lastError = error.localizedDescription
         }
     }
 
@@ -44,19 +44,17 @@ final class ContactsService: ObservableObject {
         ]
         let request = CNContactFetchRequest(keysToFetch: keys)
         request.sortOrder = .userDefault
-        var result: [ContactRecord] = []
+        var loaded: [ContactRecord] = []
         try store.enumerateContacts(with: request) { contact, _ in
             let personalName = [contact.givenName, contact.familyName]
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
             let displayName = personalName.isEmpty ? contact.organizationName : personalName
-            let numbers = contact.phoneNumbers
-                .map { $0.value.stringValue }
-                .filter { !$0.isEmpty }
+            let numbers = contact.phoneNumbers.map(\.value.stringValue).filter { !$0.isEmpty }
             guard !displayName.isEmpty, !numbers.isEmpty else { return }
-            result.append(ContactRecord(id: contact.identifier, displayName: displayName, phoneNumbers: numbers))
+            loaded.append(ContactRecord(id: contact.identifier, displayName: displayName, phoneNumbers: numbers))
         }
-        contacts = result
+        contacts = loaded
         lastError = nil
     }
 }
@@ -72,10 +70,9 @@ final class AppleMusicService: ObservableObject {
 
     init() {
         player.beginGeneratingPlaybackNotifications()
-        let center = NotificationCenter.default
         Publishers.Merge(
-            center.publisher(for: .MPMusicPlayerControllerNowPlayingItemDidChange),
-            center.publisher(for: .MPMusicPlayerControllerPlaybackStateDidChange)
+            NotificationCenter.default.publisher(for: .MPMusicPlayerControllerNowPlayingItemDidChange),
+            NotificationCenter.default.publisher(for: .MPMusicPlayerControllerPlaybackStateDidChange)
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in self?.refresh() }
@@ -83,14 +80,12 @@ final class AppleMusicService: ObservableObject {
         refresh()
     }
 
-    deinit {
-        player.endGeneratingPlaybackNotifications()
-    }
-
     func requestAuthorization() async {
         if authorizationStatus == .notDetermined {
             authorizationStatus = await withCheckedContinuation { continuation in
-                MPMediaLibrary.requestAuthorization { continuation.resume(returning: $0) }
+                MPMediaLibrary.requestAuthorization { value in
+                    continuation.resume(returning: value)
+                }
             }
         }
         refresh()
@@ -98,7 +93,11 @@ final class AppleMusicService: ObservableObject {
 
     func execute(_ command: PhoneMediaCommand) -> MediaCommandResult {
         guard authorizationStatus == .authorized else {
-            return MediaCommandResult(command: command, succeeded: false, message: "Apple Music permission is not granted on the iPhone.")
+            return MediaCommandResult(
+                command: command,
+                succeeded: false,
+                message: "Apple Music permission is not granted on the iPhone."
+            )
         }
         switch command {
         case .play: player.play()
@@ -107,15 +106,15 @@ final class AppleMusicService: ObservableObject {
         case .next: player.skipToNextItem()
         }
         refresh()
-        return MediaCommandResult(command: command, succeeded: true, message: "Command sent to the iPhone Apple Music system player.")
+        return MediaCommandResult(
+            command: command,
+            succeeded: true,
+            message: "The command was submitted to the iPhone Apple Music system player."
+        )
     }
 
     func refresh() {
-        guard authorizationStatus == .authorized else {
-            state = .unavailable
-            return
-        }
-        guard let item = player.nowPlayingItem else {
+        guard authorizationStatus == .authorized, let item = player.nowPlayingItem else {
             state = .unavailable
             return
         }
@@ -149,17 +148,17 @@ final class PhoneLocationService: NSObject, ObservableObject, @preconcurrency CL
     }
 
     func setSharingEnabled(_ enabled: Bool) {
-        if enabled {
-            if authorizationStatus == .notDetermined {
-                manager.requestWhenInUseAuthorization()
-            } else if authorizationStatus == .authorizedAlways || authorizationStatus == .authorizedWhenInUse {
-                manager.startUpdatingLocation()
-            } else {
-                lastError = "Location permission is required before sharing can start."
-            }
-        } else {
+        guard enabled else {
             manager.stopUpdatingLocation()
             state = nil
+            return
+        }
+        if authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        } else if authorizationStatus == .authorizedAlways || authorizationStatus == .authorizedWhenInUse {
+            manager.startUpdatingLocation()
+        } else {
+            lastError = "Location permission is required before sharing can start."
         }
     }
 
@@ -202,9 +201,9 @@ final class CalendarDestinationService: ObservableObject {
                 _ = try await store.requestFullAccessToEvents()
                 authorizationStatus = EKEventStore.authorizationStatus(for: .event)
             }
-            guard authorizationStatus == .fullAccess || authorizationStatus == .authorized else {
+            guard authorizationStatus == .fullAccess else {
                 destinations = []
-                lastError = "Calendar permission is required to share event destinations."
+                lastError = "Full calendar access is required to share event destinations."
                 return
             }
             let start = Date()
@@ -231,7 +230,12 @@ final class CalendarDestinationService: ObservableObject {
 
 @MainActor
 final class PhoneHealthService: ObservableObject {
-    @Published private(set) var state = PhoneDeviceState(batteryPercent: nil, isCharging: false, isOnline: false, updatedAt: Date())
+    @Published private(set) var state = PhoneDeviceState(
+        batteryPercent: nil,
+        isCharging: false,
+        isOnline: false,
+        updatedAt: Date()
+    )
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "com.kalpana.drive.phone.network")
@@ -282,6 +286,7 @@ final class NearbyPhoneConnection: NSObject, ObservableObject {
     private lazy var session = MCSession(peer: localPeer, securityIdentity: nil, encryptionPreference: .required)
     private lazy var browser = MCNearbyServiceBrowser(peer: localPeer, serviceType: serviceType)
     private var sequence: UInt64 = 0
+    private var highestReceivedSequence: UInt64 = 0
 
     override init() {
         super.init()
@@ -301,14 +306,30 @@ final class NearbyPhoneConnection: NSObject, ObservableObject {
     }
 
     func send<T: Encodable>(_ type: MessageType, payload: T) throws {
-        guard !session.connectedPeers.isEmpty else {
-            throw ConnectionError.notConnected
-        }
+        guard !session.connectedPeers.isEmpty else { throw ConnectionError.notConnected }
         sequence &+= 1
-        let deviceID = DeviceIdentity.shared.id
-        let envelope = try CompanionEnvelope(type: type, deviceID: deviceID, sequence: sequence, payload: payload)
+        let envelope = try CompanionEnvelope(
+            type: type,
+            deviceID: DeviceIdentity.shared.id,
+            sequence: sequence,
+            payload: payload
+        )
         let data = try JSONEncoder.companion.encode(envelope)
         try session.send(data, toPeers: session.connectedPeers, with: .reliable)
+    }
+
+    private func receive(_ data: Data) {
+        do {
+            let envelope = try JSONDecoder.companion.decode(CompanionEnvelope.self, from: data)
+            guard envelope.sequence > highestReceivedSequence else {
+                lastError = "A replayed or out-of-order iPad message was rejected."
+                return
+            }
+            highestReceivedSequence = envelope.sequence
+            onEnvelope?(envelope)
+        } catch {
+            lastError = "Received an invalid companion message: \(error.localizedDescription)"
+        }
     }
 
     enum ConnectionError: LocalizedError {
@@ -318,49 +339,54 @@ final class NearbyPhoneConnection: NSObject, ObservableObject {
 }
 
 extension NearbyPhoneConnection: @preconcurrency MCNearbyServiceBrowserDelegate {
-    nonisolated func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
-        Task { @MainActor in
-            if !discoveredPeers.contains(peerID) { discoveredPeers.append(peerID) }
+    nonisolated func browser(
+        _ browser: MCNearbyServiceBrowser,
+        foundPeer peerID: MCPeerID,
+        withDiscoveryInfo info: [String : String]?
+    ) {
+        guard info?["role"] == "ipad" else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if !self.discoveredPeers.contains(peerID) { self.discoveredPeers.append(peerID) }
         }
     }
 
     nonisolated func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
-        Task { @MainActor in discoveredPeers.removeAll { $0 == peerID } }
+        Task { @MainActor [weak self] in
+            self?.discoveredPeers.removeAll { $0 == peerID }
+        }
     }
 
     nonisolated func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
-        Task { @MainActor in
-            lastError = error.localizedDescription
-            statusText = "Nearby discovery failed"
+        Task { @MainActor [weak self] in
+            self?.lastError = error.localizedDescription
+            self?.statusText = "Nearby discovery failed"
         }
     }
 }
 
 extension NearbyPhoneConnection: @preconcurrency MCSessionDelegate {
     nonisolated func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             switch state {
             case .connected:
-                connectedPeer = peerID
-                statusText = "Encrypted connection active with \(peerID.displayName)"
+                self.connectedPeer = peerID
+                self.highestReceivedSequence = 0
+                self.statusText = "Encrypted connection active with \(peerID.displayName)"
             case .connecting:
-                statusText = "Connecting to \(peerID.displayName)"
+                self.statusText = "Connecting to \(peerID.displayName)"
             case .notConnected:
-                if connectedPeer == peerID { connectedPeer = nil }
-                statusText = "Disconnected — searching for iPad"
+                if self.connectedPeer == peerID { self.connectedPeer = nil }
+                self.statusText = "Disconnected — searching for iPad"
             @unknown default:
-                statusText = "Unknown connection state"
+                self.statusText = "Unknown connection state"
             }
         }
     }
 
     nonisolated func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        do {
-            let envelope = try JSONDecoder.companion.decode(CompanionEnvelope.self, from: data)
-            Task { @MainActor in onEnvelope?(envelope) }
-        } catch {
-            Task { @MainActor in lastError = "Received an invalid companion message: \(error.localizedDescription)" }
-        }
+        Task { @MainActor [weak self] in self?.receive(data) }
     }
 
     nonisolated func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {}
