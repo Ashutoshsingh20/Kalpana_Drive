@@ -259,8 +259,6 @@ final class PhoneHealthService: ObservableObject {
         refresh()
     }
 
-    deinit { monitor.cancel() }
-
     func refresh() {
         let level = UIDevice.current.batteryLevel
         state = PhoneDeviceState(
@@ -293,11 +291,6 @@ final class NearbyPhoneConnection: NSObject, ObservableObject {
         session.delegate = self
         browser.delegate = self
         browser.startBrowsingForPeers()
-    }
-
-    deinit {
-        browser.stopBrowsingForPeers()
-        session.disconnect()
     }
 
     func connect(to peer: MCPeerID) {
@@ -338,7 +331,7 @@ final class NearbyPhoneConnection: NSObject, ObservableObject {
     }
 }
 
-extension NearbyPhoneConnection: @preconcurrency MCNearbyServiceBrowserDelegate {
+extension NearbyPhoneConnection: MCNearbyServiceBrowserDelegate {
     nonisolated func browser(
         _ browser: MCNearbyServiceBrowser,
         foundPeer peerID: MCPeerID,
@@ -365,7 +358,7 @@ extension NearbyPhoneConnection: @preconcurrency MCNearbyServiceBrowserDelegate 
     }
 }
 
-extension NearbyPhoneConnection: @preconcurrency MCSessionDelegate {
+extension NearbyPhoneConnection: MCSessionDelegate {
     nonisolated func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -394,6 +387,7 @@ extension NearbyPhoneConnection: @preconcurrency MCSessionDelegate {
     nonisolated func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {}
 }
 
+@MainActor
 final class DeviceIdentity {
     static let shared = DeviceIdentity()
     let id: UUID
