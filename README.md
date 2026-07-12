@@ -1,29 +1,44 @@
 # Kalpana Drive
 
-Kalpana Drive is an independent, driving-focused iPad dashboard for a Maruti Suzuki Ignis. It uses public platform APIs and does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
+Kalpana Drive is an independent, driving-focused iPad dashboard for a Maruti Suzuki Ignis. It uses public Apple platform APIs and does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
 
-This repository currently contains the Phase 1 iPad foundation: a compilable SwiftUI dashboard, safety state machine, provider abstractions, mock services, local recovery state, diagnostics, and unit tests. The phone companion directories are intentionally Phase 2/3 placeholders.
+The repository follows one hard rule: **no demo data, mock services, simulated movement, fabricated connection states, or placeholder controls are allowed in the runnable application.** A capability either uses a real platform service or reports that it is unavailable.
+
+## Implemented iPad capabilities
+
+- Live MapKit map with the iPad's current location and heading.
+- Real Core Location speed, permission state, and GPS accuracy.
+- Real network reachability through `NWPathMonitor`.
+- Real Apple system-music metadata and transport controls through `MPMusicPlayerController`.
+- Real current audio-output inspection through `AVAudioSession`.
+- Real battery, charging, low-power, and thermal state reporting.
+- Real speech recognition and text-to-speech through Speech and AVFoundation.
+- Driving-state restrictions calculated from live speed, power, thermal, network, and phone state.
+- MapKit driving-route service for real destinations.
+- Atomic local recovery storage and deterministic domain checks.
+
+## Truthful unavailable states
+
+Phone calls, phone notifications, and cross-device messaging remain unavailable until real authenticated iPhone and Android companion applications are implemented. The iPad UI does not fabricate these features or display pretend phone data.
 
 ## Repository layout
 
-- `ipad-app/` — Swift Package containing the iPad app and testable core
-- `iphone-companion/` — Phase 3 scope placeholder
-- `android-companion/` — Phase 2 scope placeholder
-- `shared-protocol/` — versioned cross-device protocol contract
-- `documentation/` — architecture, safety, limitations, and status
-- `tests/` — cross-platform test plans and fixtures
-- `scripts/` — repeatable build and test commands
+- `ipad-app/` — Swift iPad application and testable core
+- `shared-protocol/` — versioned device-message contract for future real companions
+- `documentation/` — architecture, safety, platform limitations, and implementation status
+- `tests/` — validation plans and protocol fixtures
+- `scripts/` — repeatable checks
 
-## Build and test
+## Required permissions
 
-```bash
-./scripts/test.sh
-./scripts/build.sh
-```
+The final iPad app target must include these usage descriptions:
 
-Open `ipad-app/Package.swift` in a full Xcode installation, select the `KalpanaDriveApp` scheme and an iPad simulator/device, then Run. Command-line validation requires Swift 6.0 or newer. A full iPad build requires Xcode with the iPadOS SDK.
+- `NSLocationWhenInUseUsageDescription`
+- `NSMicrophoneUsageDescription`
+- `NSSpeechRecognitionUsageDescription`
 
-## Phase 1 status
+Without these keys, iPadOS will correctly refuse the associated live capability.
 
-See [`documentation/PHASE_1_STATUS.md`](documentation/PHASE_1_STATUS.md). All simulated values are labelled in the UI; no phone, vehicle, Bluetooth-control, or turn-by-turn capability is fabricated.
+## Build
 
+Open `ipad-app/Package.swift` using a full Xcode installation with the iPadOS SDK, select the `KalpanaDriveApp` scheme and run on a physical iPad. GPS speed, Bluetooth audio routing, microphone input, battery state, and thermal behavior must be validated on physical hardware; simulator-only results are not accepted as production validation.
