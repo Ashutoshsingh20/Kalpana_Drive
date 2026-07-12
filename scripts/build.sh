@@ -27,6 +27,7 @@ if [ "$PROJECT_NEEDS_REGEN" -eq 1 ]; then
 fi
 
 xcodebuild \
+  -quiet \
   -project "$PROJECT" \
   -scheme KalpanaDriveApp \
   -configuration Debug \
