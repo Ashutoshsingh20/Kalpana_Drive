@@ -1,7 +1,7 @@
 import Combine
-import Contacts
+@preconcurrency import Contacts
 import CoreLocation
-import EventKit
+@preconcurrency import EventKit
 import Foundation
 import MediaPlayer
 @preconcurrency import MultipeerConnectivity
@@ -19,7 +19,7 @@ final class ContactsService: ObservableObject {
     func requestAndLoad() async {
         do {
             if authorizationStatus == .notDetermined {
-                _ = try await store.requestAccess(for: .contacts)
+                _ = try await requestContactsPermission()
                 authorizationStatus = CNContactStore.authorizationStatus(for: .contacts)
             }
             guard authorizationStatus == .authorized else {
@@ -31,6 +31,18 @@ final class ContactsService: ObservableObject {
         } catch {
             contacts = []
             lastError = error.localizedDescription
+        }
+    }
+
+    private func requestContactsPermission() async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            store.requestAccess(for: .contacts) { granted, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: granted)
+                }
+            }
         }
     }
 
@@ -198,7 +210,7 @@ final class CalendarDestinationService: ObservableObject {
     func requestAndLoad() async {
         do {
             if authorizationStatus == .notDetermined {
-                _ = try await store.requestFullAccessToEvents()
+                _ = try await requestCalendarPermission()
                 authorizationStatus = EKEventStore.authorizationStatus(for: .event)
             }
             guard authorizationStatus == .fullAccess else {
@@ -206,25 +218,41 @@ final class CalendarDestinationService: ObservableObject {
                 lastError = "Full calendar access is required to share event destinations."
                 return
             }
-            let start = Date()
-            let end = Calendar.current.date(byAdding: .day, value: 14, to: start) ?? start
-            let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-            destinations = store.events(matching: predicate)
-                .filter { !($0.location ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                .prefix(50)
-                .map {
-                    CalendarDestination(
-                        id: $0.eventIdentifier ?? UUID().uuidString,
-                        title: $0.title ?? "Calendar event",
-                        location: $0.location ?? "",
-                        startDate: $0.startDate
-                    )
-                }
-            lastError = nil
+            loadDestinations()
         } catch {
             destinations = []
             lastError = error.localizedDescription
         }
+    }
+
+    private func requestCalendarPermission() async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            store.requestFullAccessToEvents { granted, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: granted)
+                }
+            }
+        }
+    }
+
+    private func loadDestinations() {
+        let start = Date()
+        let end = Calendar.current.date(byAdding: .day, value: 14, to: start) ?? start
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+        destinations = store.events(matching: predicate)
+            .filter { !($0.location ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .prefix(50)
+            .map {
+                CalendarDestination(
+                    id: $0.eventIdentifier ?? UUID().uuidString,
+                    title: $0.title ?? "Calendar event",
+                    location: $0.location ?? "",
+                    startDate: $0.startDate
+                )
+            }
+        lastError = nil
     }
 }
 
