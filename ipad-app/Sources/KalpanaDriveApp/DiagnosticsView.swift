@@ -1,5 +1,5 @@
-import SwiftUI
 import KalpanaDriveCore
+import SwiftUI
 
 struct DiagnosticsView: View {
     @ObservedObject var model: DashboardViewModel
@@ -8,26 +8,48 @@ struct DiagnosticsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("System health") {
+                Section("Live system health") {
                     LabeledContent("Driving state", value: model.drivingState.rawValue)
-                    LabeledContent("Phone", value: model.phone.state.rawValue)
+                    LabeledContent("GPS permission", value: model.locationPermission)
+                    LabeledContent("GPS accuracy", value: model.locationAccuracy)
+                    LabeledContent("Reported speed", value: "\(model.speedKPH) km/h")
+                    LabeledContent("Network", value: model.isOnline ? "Online" : "Offline")
                     LabeledContent("Audio route", value: model.audioRoute.rawValue)
-                    LabeledContent("Data source", value: "Phase 1 simulation")
+                    LabeledContent("Battery", value: model.batteryStatus)
+                    LabeledContent("Thermal state", value: model.thermalStatus)
                 }
-                Section("Simulation") {
-                    Button("Toggle parked / moving", action: model.toggleSimulation)
+
+                Section("Phone companion") {
+                    LabeledContent("State", value: model.phone.state.rawValue)
+                    LabeledContent("Platform", value: model.phone.platform.rawValue)
+                    if let name = model.phone.deviceName {
+                        LabeledContent("Device", value: name)
+                    }
+                    Text("No call, message, or notification data is shown unless a real authenticated companion is installed and connected.")
+                }
+
+                Section("Media") {
+                    LabeledContent("Track", value: model.media.title.isEmpty ? "Nothing playing" : model.media.title)
+                    LabeledContent("Artist", value: model.media.artist.isEmpty ? "Unavailable" : model.media.artist)
+                    LabeledContent("Playback", value: model.media.isPlaying ? "Playing" : "Paused")
+                }
+
+                Section("Appearance") {
                     Picker("Appearance", selection: $model.appearance) {
                         Text("Day").tag(DriveAppearance.day)
                         Text("Night").tag(DriveAppearance.night)
                         Text("High sunlight").tag(DriveAppearance.highSunlight)
                     }
                 }
+
                 Section("Privacy") {
-                    Text("Diagnostic output contains no notification content, credentials, contacts, or precise location.")
+                    Text("This screen reports only live device health and capability state. It does not contain notification content, credentials, contacts, or precise coordinates.")
                 }
             }
             .navigationTitle("System Health")
-            .toolbar { Button("Done") { dismiss() } }
+            .toolbar {
+                Button("Done") { dismiss() }
+            }
         }
     }
 }
