@@ -26,14 +26,15 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var thermalStatus = "Nominal"
     @Published private(set) var errorMessage: String?
 
-    @Published var appearance: DriveAppearance = .night
+    @Published private(set) var appearance: DriveAppearance = .night
     @Published var controlHand: ControlHand = .left
-    @Published var selectedSection: DashboardSection = .home
+    @Published private(set) var selectedSection: DashboardSection = .home
     @Published var voiceMessage = "Tap to speak"
     @Published var isVoiceActive = false
     @Published var isDiagnosticsPresented = false
 
     private var stateMachine = DrivingStateMachine()
+    private let safetyPolicy = DrivingSafetyPolicy()
     private let locationService = LiveLocationService()
     private let mediaService = LiveMediaService()
     private let phoneService = PhoneCompanionService()
@@ -42,34 +43,41 @@ final class DashboardViewModel: ObservableObject {
     private let navigationService = MapKitNavigationService()
     private let speechService = LiveSpeechService()
 
-    private var refreshTask: Task<Void, Never>?
+    private var clockTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         UIDevice.current.isBatteryMonitoringEnabled = true
         locationService.start()
-        startRefreshLoop()
+        bindLiveServices()
+        refreshLiveState()
+        startClock()
     }
 
     deinit {
-        refreshTask?.cancel()
+        clockTask?.cancel()
     }
 
     func togglePlayback() {
+        guard authorize(.controlMedia, source: .touch) else { return }
         mediaService.execute(media.isPlaying ? .pause : .play)
         refreshLiveState()
     }
 
     func previousTrack() {
+        guard authorize(.controlMedia, source: .touch) else { return }
         mediaService.execute(.previous)
         refreshLiveState()
     }
 
     func nextTrack() {
+        guard authorize(.controlMedia, source: .touch) else { return }
         mediaService.execute(.next)
         refreshLiveState()
     }
 
     func activateVoice() {
+        guard authorize(.useVoice, source: .touch) else { return }
         if speechService.isListening {
             speechService.stop()
             isVoiceActive = false
@@ -96,21 +104,54 @@ final class DashboardViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    func selectSection(_ section: DashboardSection, source: ActionSource = .touch) {
+        let action: DrivingAction = switch section {
+        case .home: .openDashboard
+        case .map: .openMap
+        case .music: .openMusic
+        case .phone: .openPhone
+        case .settings: .openSettings
+        }
+        guard authorize(action, source: source) else { return }
+        selectedSection = section
+    }
+
+    func openDiagnostics() {
+        guard authorize(.openSettings, source: .touch) else { return }
+        isDiagnosticsPresented = true
+    }
+
+    func setAppearance(_ newAppearance: DriveAppearance) {
+        guard authorize(.openSettings, source: .touch) else { return }
+        appearance = newAppearance
+    }
+
+    @discardableResult
+    private func authorize(_ action: DrivingAction, source: ActionSource) -> Bool {
+        let decision = safetyPolicy.evaluate(action, state: drivingState, source: source)
+        if let reason = decision.reason { errorMessage = reason }
+        return decision.isAllowed
+    }
+
     private func handleVoiceTranscript(_ transcript: String) {
         let command = transcript.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let response: String
 
         switch command {
         case "play music", "music chalao":
+            guard authorize(.controlMedia, source: .voice) else { return }
             mediaService.execute(.play)
             response = "Playing the current system music queue."
         case "pause music", "music pause karo":
+            guard authorize(.controlMedia, source: .voice) else { return }
             mediaService.execute(.pause)
             response = "Music paused."
         case "next song", "next track", "agla gana":
+            guard authorize(.controlMedia, source: .voice) else { return }
             mediaService.execute(.next)
             response = "Skipping to the next track."
         case "previous song", "previous track", "pichla gana":
+            guard authorize(.controlMedia, source: .voice) else { return }
             mediaService.execute(.previous)
             response = "Returning to the previous track."
         case "what is my eta", "eta kya hai":
@@ -130,11 +171,45 @@ final class DashboardViewModel: ObservableObject {
         refreshLiveState()
     }
 
-    private func startRefreshLoop() {
-        refreshTask = Task { [weak self] in
+    private func bindLiveServices() {
+        Publishers.MergeMany([
+            locationService.objectWillChange.eraseToAnyPublisher(),
+            mediaService.objectWillChange.eraseToAnyPublisher(),
+            phoneService.objectWillChange.eraseToAnyPublisher(),
+            audioService.objectWillChange.eraseToAnyPublisher(),
+            connectivityService.objectWillChange.eraseToAnyPublisher(),
+            navigationService.objectWillChange.eraseToAnyPublisher(),
+            speechService.objectWillChange.eraseToAnyPublisher()
+        ])
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            DispatchQueue.main.async { self?.refreshLiveState() }
+        }
+        .store(in: &cancellables)
+
+        let center = NotificationCenter.default
+        Publishers.MergeMany([
+            center.publisher(for: UIDevice.batteryLevelDidChangeNotification).map { _ in }.eraseToAnyPublisher(),
+            center.publisher(for: UIDevice.batteryStateDidChangeNotification).map { _ in }.eraseToAnyPublisher(),
+            center.publisher(for: .NSProcessInfoPowerStateDidChange).map { _ in }.eraseToAnyPublisher(),
+            center.publisher(for: ProcessInfo.thermalStateDidChangeNotification).map { _ in }.eraseToAnyPublisher()
+        ])
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in self?.refreshLiveState() }
+        .store(in: &cancellables)
+    }
+
+    private func startClock() {
+        clockTask = Task { [weak self] in
+            var secondsUntilFreshnessCheck = 5
             while !Task.isCancelled {
-                self?.refreshLiveState()
+                self?.now = Date()
                 try? await Task.sleep(for: .seconds(1))
+                secondsUntilFreshnessCheck -= 1
+                if secondsUntilFreshnessCheck == 0 {
+                    self?.refreshLiveState()
+                    secondsUntilFreshnessCheck = 5
+                }
             }
         }
     }
@@ -142,9 +217,9 @@ final class DashboardViewModel: ObservableObject {
     private func refreshLiveState() {
         now = Date()
         speedKPH = Int((max(0, locationService.speedMetresPerSecond) * 3.6).rounded())
-        media = mediaService.currentSnapshot()
+        media = mediaService.snapshot
         phone = phoneService.snapshot
-        audioRoute = audioService.currentRoute()
+        audioRoute = audioService.route
         activeRoute = navigationService.activeRoute
         isOnline = connectivityService.isOnline
         locationPermission = authorizationDescription(locationService.authorizationStatus)

@@ -35,7 +35,10 @@ struct DiagnosticsView: View {
                 }
 
                 Section("Appearance") {
-                    Picker("Appearance", selection: $model.appearance) {
+                    Picker("Appearance", selection: Binding(
+                        get: { model.appearance },
+                        set: { model.setAppearance($0) }
+                    )) {
                         Text("Day").tag(DriveAppearance.day)
                         Text("Night").tag(DriveAppearance.night)
                         Text("High sunlight").tag(DriveAppearance.highSunlight)

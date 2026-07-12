@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		14BF7C1A2CD4A7EE74EA2955 /* RecoveryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25A35D99807A37B7832025 /* RecoveryStore.swift */; };
+		2D776848B36D5D5D6BA5F581 /* DrivingStateAndSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */; };
 		401E1311528A0D87CA53CDBC /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */; };
 		5AA0497002DF6F0DF6F39EAF /* KalpanaDriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */; };
 		5B44DB746F7651E717247793 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5514ED2950119BD9675BA108 /* Models.swift */; };
@@ -19,10 +20,20 @@
 		A9DB5948416379131463ABC9 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */; };
 		B2C9DF818EE57F0EA0DA204B /* KalpanaDriveCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; };
 		C87F935A1FC081501BC8A53E /* DriveTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98CDFA29656953DA9F48176B /* DriveTheme.swift */; };
+		CA567AB3CC51C09238409DF8 /* KalpanaDriveCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; };
+		CB1B68B963173BC51C6CFADD /* SafetyPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */; };
+		DEFECEB175E5CEE78D03B017 /* KalpanaDriveCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		3B05F768D516B672D17399DB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D7A5986414CB29D766075FFC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB27C8B94219192BF4962729;
+			remoteInfo = KalpanaDriveCore;
+		};
+		FA0798ABCCCEB88A861BD3C3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D7A5986414CB29D766075FFC /* Project object */;
 			proxyType = 1;
@@ -43,6 +54,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9C75D821FB6213427BC8443 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				DEFECEB175E5CEE78D03B017 /* KalpanaDriveCore.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +72,9 @@
 		2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
 		3BCDA14FB539FB63B053673D /* KalpanaDriveApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KalpanaDriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5514ED2950119BD9675BA108 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		5C898C17A0382466EBD88654 /* KalpanaDriveCoreTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = KalpanaDriveCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyPolicy.swift; sourceTree = "<group>"; };
+		93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingStateAndSafetyTests.swift; sourceTree = "<group>"; };
 		98CDFA29656953DA9F48176B /* DriveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveTheme.swift; sourceTree = "<group>"; };
 		A3B225DA98195D08E7C9CA3E /* LiveServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveServices.swift; sourceTree = "<group>"; };
 		CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
@@ -61,6 +86,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		17734BFFB14C2FBA30C92E66 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA567AB3CC51C09238409DF8 /* KalpanaDriveCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B18A74351D5366BDB8692790 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -84,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				2AC64A40680E4DF74C48E294 /* Sources */,
+				6B66DA1EEDF372E4C6306422 /* Tests */,
 				67FEB49A81314270919DA581 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,6 +137,7 @@
 				FEB7B7964375412D18A39398 /* DrivingState.swift */,
 				5514ED2950119BD9675BA108 /* Models.swift */,
 				2438D14541F66C5B68444F94 /* Protocols.swift */,
+				685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -112,8 +147,17 @@
 			children = (
 				3BCDA14FB539FB63B053673D /* KalpanaDriveApp.app */,
 				EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */,
+				5C898C17A0382466EBD88654 /* KalpanaDriveCoreTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6B66DA1EEDF372E4C6306422 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				D126EDDB1ADAE0CE1CC37D46 /* KalpanaDriveCoreXCTests */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		73C730782D9D5CB5BC3CAF27 /* KalpanaDriveCore */ = {
@@ -138,6 +182,14 @@
 			path = KalpanaDriveApp;
 			sourceTree = "<group>";
 		};
+		D126EDDB1ADAE0CE1CC37D46 /* KalpanaDriveCoreXCTests */ = {
+			isa = PBXGroup;
+			children = (
+				93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */,
+			);
+			path = KalpanaDriveCoreXCTests;
+			sourceTree = "<group>";
+		};
 		DAD5F2B529AA76B46C3A431E /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
@@ -149,6 +201,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A0AF15DC1D549CEFEE3EF8EF /* KalpanaDriveCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9B4AAB0213364A2C1BB6C33F /* Build configuration list for PBXNativeTarget "KalpanaDriveCoreTests" */;
+			buildPhases = (
+				F5519BF42A72AD0692E7DAB2 /* Sources */,
+				17734BFFB14C2FBA30C92E66 /* Frameworks */,
+				B9C75D821FB6213427BC8443 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9A2C64C9C4DC46C9A72247A1 /* PBXTargetDependency */,
+			);
+			name = KalpanaDriveCoreTests;
+			packageProductDependencies = (
+			);
+			productName = KalpanaDriveCoreTests;
+			productReference = 5C898C17A0382466EBD88654 /* KalpanaDriveCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		C47C111AE091FF80B878A792 /* KalpanaDriveApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 66DD71F7B4CEA8AA99E4F02C /* Build configuration list for PBXNativeTarget "KalpanaDriveApp" */;
@@ -217,6 +289,7 @@
 			targets = (
 				C47C111AE091FF80B878A792 /* KalpanaDriveApp */,
 				CB27C8B94219192BF4962729 /* KalpanaDriveCore */,
+				A0AF15DC1D549CEFEE3EF8EF /* KalpanaDriveCoreTests */,
 			);
 		};
 /* End PBXProject section */
@@ -243,6 +316,15 @@
 				5B44DB746F7651E717247793 /* Models.swift in Sources */,
 				8CC8ADEF831C82DEA03EB55E /* Protocols.swift in Sources */,
 				14BF7C1A2CD4A7EE74EA2955 /* RecoveryStore.swift in Sources */,
+				CB1B68B963173BC51C6CFADD /* SafetyPolicy.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5519BF42A72AD0692E7DAB2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D776848B36D5D5D6BA5F581 /* DrivingStateAndSafetyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +335,11 @@
 			isa = PBXTargetDependency;
 			target = CB27C8B94219192BF4962729 /* KalpanaDriveCore */;
 			targetProxy = 3B05F768D516B672D17399DB /* PBXContainerItemProxy */;
+		};
+		9A2C64C9C4DC46C9A72247A1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB27C8B94219192BF4962729 /* KalpanaDriveCore */;
+			targetProxy = FA0798ABCCCEB88A861BD3C3 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -405,6 +492,23 @@
 			};
 			name = Debug;
 		};
+		A82D129FEDE95CCBA36CD26F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ashutoshsingh.kalpanadrive.coretests;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		A852FB0CABF00C0E15A98E06 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -420,6 +524,23 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.ashutoshsingh.kalpanadrive;
 				PRODUCT_NAME = "Kalpana Drive";
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B447D272436092B09B468B02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ashutoshsingh.kalpanadrive.coretests;
 				SDKROOT = iphoneos;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -487,6 +608,15 @@
 			buildConfigurations = (
 				FF3653E4BF3342A873654F78 /* Debug */,
 				A852FB0CABF00C0E15A98E06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9B4AAB0213364A2C1BB6C33F /* Build configuration list for PBXNativeTarget "KalpanaDriveCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A82D129FEDE95CCBA36CD26F /* Debug */,
+				B447D272436092B09B468B02 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

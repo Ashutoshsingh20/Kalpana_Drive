@@ -53,5 +53,19 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_STRICT_CONCURRENCY: complete
     scheme:
-      testTargets: []
-      gatherCoverageData: false
+      testTargets:
+        - KalpanaDriveCoreTests
+      gatherCoverageData: true
+
+  KalpanaDriveCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/KalpanaDriveCoreXCTests
+    dependencies:
+      - target: KalpanaDriveCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ashutoshsingh.kalpanadrive.coretests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_STRICT_CONCURRENCY: complete

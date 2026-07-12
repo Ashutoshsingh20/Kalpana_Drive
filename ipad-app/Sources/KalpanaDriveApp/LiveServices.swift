@@ -87,12 +87,31 @@ final class LiveLocationService: NSObject, ObservableObject, @preconcurrency CLL
 }
 
 @MainActor
-final class LiveMediaService {
+final class LiveMediaService: ObservableObject {
+    @Published private(set) var snapshot: MediaSnapshot = .unavailable
     private let player = MPMusicPlayerController.systemMusicPlayer
+    private var cancellables = Set<AnyCancellable>()
 
-    func currentSnapshot() -> MediaSnapshot {
-        guard let item = player.nowPlayingItem else { return .unavailable }
-        return MediaSnapshot(
+    init() {
+        player.beginGeneratingPlaybackNotifications()
+        let center = NotificationCenter.default
+        Publishers.Merge3(
+            center.publisher(for: .MPMusicPlayerControllerNowPlayingItemDidChange),
+            center.publisher(for: .MPMusicPlayerControllerPlaybackStateDidChange),
+            center.publisher(for: .MPMusicPlayerControllerVolumeDidChange)
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in self?.refresh() }
+        .store(in: &cancellables)
+        refresh()
+    }
+
+    private func refresh() {
+        guard let item = player.nowPlayingItem else {
+            snapshot = .unavailable
+            return
+        }
+        snapshot = MediaSnapshot(
             title: item.title ?? "Untitled track",
             artist: item.artist ?? "Unknown artist",
             isPlaying: player.playbackState == .playing,
@@ -112,25 +131,40 @@ final class LiveMediaService {
         case .next:
             player.skipToNextItem()
         }
+        refresh()
     }
 }
 
 @MainActor
-final class LiveAudioRouteService {
-    func currentRoute() -> AudioRoute {
+final class LiveAudioRouteService: ObservableObject {
+    @Published private(set) var route: AudioRoute = .unknown
+    @Published private(set) var routeName = "Unknown"
+    private var cancellable: AnyCancellable?
+
+    init() {
+        refresh()
+        cancellable = NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refresh() }
+    }
+
+    private func refresh() {
         let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        routeName = outputs.map(\.portName).filter { !$0.isEmpty }.joined(separator: ", ")
         if outputs.contains(where: { output in
             output.portType == .bluetoothA2DP ||
             output.portType == .bluetoothHFP ||
             output.portType == .bluetoothLE ||
             output.portType == .carAudio
         }) {
-            return .bluetooth
+            route = .bluetooth
+            return
         }
         if outputs.contains(where: { $0.portType == .builtInSpeaker }) {
-            return .ipadSpeaker
+            route = .ipadSpeaker
+            return
         }
-        return .unknown
+        route = .unknown
     }
 }
 

@@ -5,8 +5,21 @@ import KalpanaDriveCore
 struct KalpanaDriveChecks {
     static func main() async throws {
         try checkDrivingStateMachine()
+        try checkSafetyPolicy()
         try await checkRecoveryStore()
-        print("KalpanaDriveChecks: 13 checks passed")
+        print("KalpanaDriveChecks: 21 checks passed")
+    }
+
+    private static func checkSafetyPolicy() throws {
+        let policy = DrivingSafetyPolicy()
+        try expect(policy.evaluate(.controlMedia, state: .moving, source: .touch).isAllowed, "large media controls remain available")
+        try expect(policy.evaluate(.emergency, state: .moving, source: .touch).isAllowed, "emergency remains available")
+        try expect(!policy.evaluate(.openSettings, state: .moving, source: .touch).isAllowed, "settings are blocked while moving")
+        try expect(policy.evaluate(.openSettings, state: .parked, source: .touch).isAllowed, "settings are allowed while parked")
+        try expect(!policy.evaluate(.typeDestination, state: .moving, source: .touch).isAllowed, "destination typing is blocked while moving")
+        try expect(policy.evaluate(.typeDestination, state: .moving, source: .voice).isAllowed, "voice destination entry is allowed while moving")
+        try expect(!policy.evaluate(.manageDevices, state: .thermalLimit, source: .touch).isAllowed, "device management is blocked under thermal limit")
+        try expect(policy.classification(for: .browseContent) == .voiceOnlyWhileMoving, "content browsing has one central classification")
     }
 
     private static func checkDrivingStateMachine() throws {

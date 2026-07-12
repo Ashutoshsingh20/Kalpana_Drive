@@ -83,7 +83,7 @@ struct DashboardView: View {
         HStack(spacing: 12) {
             ForEach(DashboardSection.allCases) { section in
                 Button {
-                    model.selectedSection = section
+                    model.selectSection(section)
                 } label: {
                     VStack(spacing: 5) {
                         Image(systemName: sectionIcon(section))
@@ -358,7 +358,10 @@ private struct SettingsSection: View {
                     .font(.system(size: 72, weight: .bold))
                 Text("Kalpana Drive Settings")
                     .font(.system(size: 38, weight: .bold))
-                Picker("Appearance", selection: $model.appearance) {
+                Picker("Appearance", selection: Binding(
+                    get: { model.appearance },
+                    set: { model.setAppearance($0) }
+                )) {
                     Text("Day").tag(DriveAppearance.day)
                     Text("Night").tag(DriveAppearance.night)
                     Text("High sunlight").tag(DriveAppearance.highSunlight)
@@ -366,7 +369,7 @@ private struct SettingsSection: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 620)
                 Button("Open System Health") {
-                    model.isDiagnosticsPresented = true
+                    model.openDiagnostics()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
