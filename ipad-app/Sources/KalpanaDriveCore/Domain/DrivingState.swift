@@ -8,7 +8,6 @@ public enum DrivingState: String, Codable, CaseIterable, Sendable {
     case lowPower = "LOW_POWER"
     case thermalLimit = "THERMAL_LIMIT"
     case offline = "OFFLINE"
-    case phoneDisconnected = "PHONE_DISCONNECTED"
     case locationUnavailable = "LOCATION_UNAVAILABLE"
 
     public var restrictsInteraction: Bool {
@@ -23,7 +22,6 @@ public struct DrivingContext: Equatable, Sendable {
     public var lowPower: Bool
     public var thermalLimited: Bool
     public var online: Bool
-    public var phoneConnected: Bool
     public var locationAvailable: Bool
 
     public init(
@@ -33,7 +31,6 @@ public struct DrivingContext: Equatable, Sendable {
         lowPower: Bool = false,
         thermalLimited: Bool = false,
         online: Bool = true,
-        phoneConnected: Bool = false,
         locationAvailable: Bool = true
     ) {
         self.speedMetresPerSecond = speedMetresPerSecond
@@ -42,7 +39,6 @@ public struct DrivingContext: Equatable, Sendable {
         self.lowPower = lowPower
         self.thermalLimited = thermalLimited
         self.online = online
-        self.phoneConnected = phoneConnected
         self.locationAvailable = locationAvailable
     }
 }
@@ -73,7 +69,6 @@ public struct DrivingStateMachine: Sendable {
         if !context.locationAvailable { return .locationUnavailable }
         if context.speedMetresPerSecond >= Self.movingThresholdMetresPerSecond { return .moving }
         if !context.online { return .offline }
-        if !context.phoneConnected { return .phoneDisconnected }
         return .parked
     }
 
@@ -91,7 +86,6 @@ public struct DrivingStateMachine: Sendable {
         updateMotionConfirmation(speed: max(0, context.speedMetresPerSecond), at: timestamp)
         if confirmedMotionState == .moving { return .moving }
         if !context.online { return .offline }
-        if !context.phoneConnected { return .phoneDisconnected }
         return .parked
     }
 

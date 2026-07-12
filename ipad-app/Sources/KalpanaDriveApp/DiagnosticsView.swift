@@ -20,11 +20,8 @@ struct DiagnosticsView: View {
                 }
 
                 Section("Phone companion") {
-                    LabeledContent("State", value: model.phone.state.rawValue)
-                    LabeledContent("Platform", value: model.phone.platform.rawValue)
-                    if let name = model.phone.deviceName {
-                        LabeledContent("Device", value: name)
-                    }
+                    LabeledContent("State", value: "Disconnected")
+                    LabeledContent("Platform", value: "Unavailable")
                     Text("No call, message, or notification data is shown unless a real authenticated companion is installed and connected.")
                 }
 

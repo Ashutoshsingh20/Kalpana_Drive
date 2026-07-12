@@ -9,15 +9,10 @@ import UIKit
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published private(set) var now = Date()
-    @Published private(set) var drivingState: DrivingState = .phoneDisconnected
+    @Published private(set) var drivingState: DrivingState = .parked
     @Published private(set) var speedKPH = 0
     @Published private(set) var media: MediaSnapshot = .unavailable
-    @Published private(set) var phone = PhoneConnectionSnapshot(
-        state: .unavailable,
-        platform: .none,
-        deviceName: nil,
-        lastHeartbeat: nil
-    )
+    @Published var phoneNumberToDial = ""
     @Published private(set) var audioRoute: AudioRoute = .unknown
     @Published private(set) var activeRoute: RouteSnapshot?
     @Published private(set) var mapRoute: MKRoute?
@@ -43,7 +38,7 @@ final class DashboardViewModel: ObservableObject {
     private let safetyPolicy = DrivingSafetyPolicy()
     private let locationService = LiveLocationService()
     private let mediaService = LiveMediaService()
-    private let phoneService = PhoneCompanionService()
+
     private let audioService = LiveAudioRouteService()
     private let connectivityService = ConnectivityService()
     private let navigationService = MapKitNavigationService()
@@ -162,6 +157,22 @@ final class DashboardViewModel: ObservableObject {
         navigationService.cancelRoute()
     }
 
+    func callPhoneNumber() {
+        guard authorize(.openPhone, source: .touch) else { return }
+        let digits = phoneNumberToDial.filter { $0.isNumber || $0 == "+" }
+        guard !digits.isEmpty, let url = URL(string: "tel://\(digits)") else {
+            errorMessage = "Please enter a valid phone number."
+            return
+        }
+        phoneNumberToDial = ""
+        Task {
+            let opened = await UIApplication.shared.open(url)
+            if !opened {
+                errorMessage = "Your iPad cannot make calls right now. You may need to enable Continuity with an iPhone or use a cellular iPad."
+            }
+        }
+    }
+
     @discardableResult
     private func authorize(_ action: DrivingAction, source: ActionSource) -> Bool {
         let decision = safetyPolicy.evaluate(action, state: drivingState, source: source)
@@ -211,7 +222,6 @@ final class DashboardViewModel: ObservableObject {
         Publishers.MergeMany([
             locationService.objectWillChange.eraseToAnyPublisher(),
             mediaService.objectWillChange.eraseToAnyPublisher(),
-            phoneService.objectWillChange.eraseToAnyPublisher(),
             audioService.objectWillChange.eraseToAnyPublisher(),
             connectivityService.objectWillChange.eraseToAnyPublisher(),
             navigationService.objectWillChange.eraseToAnyPublisher(),
@@ -254,7 +264,6 @@ final class DashboardViewModel: ObservableObject {
         now = Date()
         speedKPH = Int((max(0, locationService.speedMetresPerSecond) * 3.6).rounded())
         media = mediaService.snapshot
-        phone = phoneService.snapshot
         audioRoute = audioService.route
         activeRoute = navigationService.activeRoute
         mapRoute = navigationService.mapRoute
@@ -288,7 +297,6 @@ final class DashboardViewModel: ObservableObject {
                 lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
                 thermalLimited: ProcessInfo.processInfo.thermalState == .serious || ProcessInfo.processInfo.thermalState == .critical,
                 online: isOnline,
-                phoneConnected: phone.state == .connected,
                 locationAvailable: locationService.hasFreshLocation
             )
         )

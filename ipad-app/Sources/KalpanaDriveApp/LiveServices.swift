@@ -191,19 +191,7 @@ final class ConnectivityService: ObservableObject {
     }
 }
 
-@MainActor
-final class PhoneCompanionService: ObservableObject {
-    @Published private(set) var snapshot = PhoneConnectionSnapshot(
-        state: .unavailable,
-        platform: .none,
-        deviceName: nil,
-        lastHeartbeat: nil
-    )
 
-    var statusMessage: String {
-        "No iPhone or Android companion is installed and paired."
-    }
-}
 
 @MainActor
 final class MapKitNavigationService: ObservableObject {

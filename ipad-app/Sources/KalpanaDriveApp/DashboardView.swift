@@ -60,7 +60,7 @@ struct DashboardView: View {
                 openYouTubeMusic: model.openYouTubeMusic
             )
         case .phone:
-            PhoneSection(phone: model.phone)
+            PhoneSection(model: model)
         case .settings:
             SettingsSection(model: model)
         }
@@ -73,7 +73,7 @@ struct DashboardView: View {
             VStack(spacing: 16) {
                 NavigationCard(route: model.activeRoute)
                 MediaCard(media: model.media, togglePlayback: model.togglePlayback)
-                PhoneCard(phone: model.phone)
+                PhoneCard()
             }
             .frame(width: compact ? 300 : 360)
         }
@@ -381,17 +381,15 @@ private struct MediaCard: View {
 }
 
 private struct PhoneCard: View {
-    let phone: PhoneConnectionSnapshot
-
     var body: some View {
         DriveCard {
             HStack {
-                Image(systemName: phone.state == .connected ? "iphone.gen2" : "iphone.gen2.slash")
+                Image(systemName: "phone.fill")
                     .font(.title)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(phone.deviceName ?? "No phone paired")
+                    Text("Phone Dialler")
                         .font(.headline)
-                    Text(phone.state == .unavailable ? "A real companion connection is not installed." : phone.state.rawValue.capitalized)
+                    Text("Ready to dial directly from iPad.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -453,22 +451,37 @@ private struct MusicSection: View {
 }
 
 private struct PhoneSection: View {
-    let phone: PhoneConnectionSnapshot
+    @ObservedObject var model: DashboardViewModel
 
     var body: some View {
         DriveCard {
             VStack(spacing: 22) {
-                Image(systemName: "iphone.gen2.slash")
+                Image(systemName: "phone.circle.fill")
                     .font(.system(size: 76, weight: .bold))
-                Text("No phone companion paired")
+                Text("Dial a Number")
                     .font(.system(size: 36, weight: .bold))
-                Text("Kalpana Drive is not presenting fabricated call, message, or notification controls. This screen will activate only after a real authenticated companion service is implemented and paired.")
+                Text("Enter a number to call using your iPad's cellular plan, or Wi-Fi calling via Continuity.")
                     .font(.title3)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 760)
-                Text("Connection state: \(phone.state.rawValue.uppercased())")
-                    .font(.headline)
+
+                HStack(spacing: 12) {
+                    TextField("Phone number", text: $model.phoneNumberToDial)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.title2)
+                        .frame(width: 300)
+                        .keyboardType(.phonePad)
+
+                    Button(action: model.callPhoneNumber) {
+                        Image(systemName: "phone.fill")
+                            .font(.title2.bold())
+                            .frame(width: 60, height: 50)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+                .padding(.top, 16)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

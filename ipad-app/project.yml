@@ -49,7 +49,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ashutoshsingh.kalpanadrive
         PRODUCT_NAME: Kalpana Drive
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "BUR97UNA96"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_STRICT_CONCURRENCY: complete
     scheme:

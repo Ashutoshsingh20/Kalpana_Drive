@@ -25,7 +25,7 @@ struct KalpanaDriveChecks {
 
     private static func checkDrivingStateMachine() throws {
         var machine = DrivingStateMachine(movingConfirmationDuration: 3, parkedConfirmationDuration: 10)
-        let moving = machine.resolve(.init(speedMetresPerSecond: 1.4, phoneConnected: true))
+        let moving = machine.resolve(.init(speedMetresPerSecond: 1.4))
         try expect(moving == .moving, "speed threshold enters MOVING")
         try expect(moving.restrictsInteraction, "MOVING restricts interaction")
 
@@ -35,21 +35,21 @@ struct KalpanaDriveChecks {
             emergencyActive: true,
             lowPower: true,
             thermalLimited: true,
-            online: false,
-            phoneConnected: false
+            online: true,
+            locationAvailable: true
         ))
         try expect(emergency == .emergency, "emergency has highest precedence")
-        try expect(machine.resolve(.init(speedMetresPerSecond: 20, passengerOverride: true, phoneConnected: true)) == .passengerMode, "passenger mode is explicit")
-        try expect(machine.resolve(.init(online: false, phoneConnected: false)) == .offline, "offline precedes disconnected phone")
-        try expect(!machine.resolve(.init(phoneConnected: false)).restrictsInteraction, "disconnected phone does not lock parked controls")
+        try expect(machine.resolve(.init(speedMetresPerSecond: 20, passengerOverride: true)) == .passengerMode, "passenger mode is explicit")
+        try expect(machine.resolve(.init(online: false)) == .offline, "offline mode handled")
+        try expect(!machine.resolve(.init()).restrictsInteraction, "parked does not lock parked controls")
         try expect(machine.resolve(.init(locationAvailable: false)) == .locationUnavailable, "missing GPS is explicit")
 
         let start = Date(timeIntervalSince1970: 1_000)
-        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start) == .parked, "one fast sample does not enter moving")
-        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start.addingTimeInterval(2.9)) == .parked, "movement requires sustained speed")
-        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start.addingTimeInterval(3)) == .moving, "sustained speed enters moving")
-        try expect(machine.update(.init(speedMetresPerSecond: 0, phoneConnected: true), at: start.addingTimeInterval(4)) == .moving, "one slow sample does not park")
-        try expect(machine.update(.init(speedMetresPerSecond: 0, phoneConnected: true), at: start.addingTimeInterval(14)) == .parked, "sustained low speed parks")
+        try expect(machine.update(.init(speedMetresPerSecond: 8), at: start) == .parked, "one fast sample does not enter moving")
+        try expect(machine.update(.init(speedMetresPerSecond: 8), at: start.addingTimeInterval(2.9)) == .parked, "movement requires sustained speed")
+        try expect(machine.update(.init(speedMetresPerSecond: 8), at: start.addingTimeInterval(3)) == .moving, "sustained speed enters moving")
+        try expect(machine.update(.init(speedMetresPerSecond: 0), at: start.addingTimeInterval(4)) == .moving, "one slow sample does not park")
+        try expect(machine.update(.init(speedMetresPerSecond: 0), at: start.addingTimeInterval(14)) == .parked, "sustained low speed parks")
     }
 
     private static func checkRecoveryStore() async throws {

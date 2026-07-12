@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1430"
-   version = "1.7">
+   LastUpgradeVersion = "2700"
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      runPostActionsOnFailure = "NO">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C47C111AE091FF80B878A792"
-               BuildableName = "KalpanaDriveApp.app"
+               BuildableName = "Kalpana Drive.app"
                BlueprintName = "KalpanaDriveApp"
                ReferencedContainer = "container:KalpanaDrive.xcodeproj">
             </BuildableReference>
@@ -28,13 +27,12 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      codeCoverageEnabled = "YES"
-      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      codeCoverageEnabled = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C47C111AE091FF80B878A792"
-            BuildableName = "KalpanaDriveApp.app"
+            BuildableName = "Kalpana Drive.app"
             BlueprintName = "KalpanaDriveApp"
             ReferencedContainer = "container:KalpanaDrive.xcodeproj">
          </BuildableReference>
@@ -52,8 +50,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -70,13 +66,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C47C111AE091FF80B878A792"
-            BuildableName = "KalpanaDriveApp.app"
+            BuildableName = "Kalpana Drive.app"
             BlueprintName = "KalpanaDriveApp"
             ReferencedContainer = "container:KalpanaDrive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -89,13 +83,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C47C111AE091FF80B878A792"
-            BuildableName = "KalpanaDriveApp.app"
+            BuildableName = "Kalpana Drive.app"
             BlueprintName = "KalpanaDriveApp"
             ReferencedContainer = "container:KalpanaDrive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

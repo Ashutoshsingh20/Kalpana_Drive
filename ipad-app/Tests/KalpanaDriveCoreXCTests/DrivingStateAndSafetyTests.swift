@@ -6,7 +6,7 @@ final class DrivingStateAndSafetyTests: XCTestCase {
         var machine = DrivingStateMachine(movingConfirmationDuration: 3, parkedConfirmationDuration: 10)
         let start = Date(timeIntervalSince1970: 1_000)
         let connected = { (speed: Double) in
-            DrivingContext(speedMetresPerSecond: speed, phoneConnected: true)
+            DrivingContext(speedMetresPerSecond: speed)
         }
 
         XCTAssertEqual(machine.update(connected(8), at: start), .parked)
@@ -25,7 +25,6 @@ final class DrivingStateAndSafetyTests: XCTestCase {
             lowPower: true,
             thermalLimited: true,
             online: false,
-            phoneConnected: false,
             locationAvailable: false
         ))
         XCTAssertEqual(state, .emergency)
