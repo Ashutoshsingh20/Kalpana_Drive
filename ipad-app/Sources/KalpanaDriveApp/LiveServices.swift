@@ -9,14 +9,22 @@ import Network
 import Speech
 
 @MainActor
-final class LiveLocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
+final class LiveLocationService: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
     @Published private(set) var coordinate: CLLocationCoordinate2D?
     @Published private(set) var speedMetresPerSecond: Double = 0
     @Published private(set) var horizontalAccuracy: CLLocationAccuracy?
+    @Published private(set) var courseDegrees: CLLocationDirection?
+    @Published private(set) var headingDegrees: CLLocationDirection?
+    @Published private(set) var lastLocationTimestamp: Date?
     @Published private(set) var authorizationStatus: CLAuthorizationStatus
     @Published private(set) var lastError: String?
 
     private let manager = CLLocationManager()
+
+    var hasFreshLocation: Bool {
+        guard let lastLocationTimestamp else { return false }
+        return Date().timeIntervalSince(lastLocationTimestamp) <= 15
+    }
 
     override init() {
         authorizationStatus = manager.authorizationStatus
@@ -56,13 +64,21 @@ final class LiveLocationService: NSObject, ObservableObject, CLLocationManagerDe
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last,
+              abs(location.timestamp.timeIntervalSinceNow) <= 15,
               location.horizontalAccuracy >= 0,
-              location.horizontalAccuracy <= 100 else { return }
+              location.horizontalAccuracy <= 50 else { return }
 
         coordinate = location.coordinate
         horizontalAccuracy = location.horizontalAccuracy
         speedMetresPerSecond = location.speed >= 0 ? location.speed : 0
+        courseDegrees = location.course >= 0 ? location.course : nil
+        lastLocationTimestamp = location.timestamp
         lastError = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        guard newHeading.headingAccuracy >= 0 else { return }
+        headingDegrees = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

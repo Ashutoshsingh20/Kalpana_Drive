@@ -33,7 +33,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var isVoiceActive = false
     @Published var isDiagnosticsPresented = false
 
-    private let stateMachine = DrivingStateMachine()
+    private var stateMachine = DrivingStateMachine()
     private let locationService = LiveLocationService()
     private let mediaService = LiveMediaService()
     private let phoneService = PhoneCompanionService()
@@ -167,13 +167,14 @@ final class DashboardViewModel: ObservableObject {
 
         errorMessage = locationService.lastError ?? speechService.lastError ?? navigationService.lastError
 
-        drivingState = stateMachine.resolve(
+        drivingState = stateMachine.update(
             DrivingContext(
                 speedMetresPerSecond: locationService.speedMetresPerSecond,
                 lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
                 thermalLimited: ProcessInfo.processInfo.thermalState == .serious || ProcessInfo.processInfo.thermalState == .critical,
                 online: isOnline,
-                phoneConnected: phone.state == .connected
+                phoneConnected: phone.state == .connected,
+                locationAvailable: locationService.hasFreshLocation
             )
         )
     }

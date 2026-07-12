@@ -6,11 +6,11 @@ struct KalpanaDriveChecks {
     static func main() async throws {
         try checkDrivingStateMachine()
         try await checkRecoveryStore()
-        print("KalpanaDriveChecks: 7 checks passed")
+        print("KalpanaDriveChecks: 13 checks passed")
     }
 
     private static func checkDrivingStateMachine() throws {
-        let machine = DrivingStateMachine()
+        var machine = DrivingStateMachine(movingConfirmationDuration: 3, parkedConfirmationDuration: 10)
         let moving = machine.resolve(.init(speedMetresPerSecond: 1.4, phoneConnected: true))
         try expect(moving == .moving, "speed threshold enters MOVING")
         try expect(moving.restrictsInteraction, "MOVING restricts interaction")
@@ -28,6 +28,14 @@ struct KalpanaDriveChecks {
         try expect(machine.resolve(.init(speedMetresPerSecond: 20, passengerOverride: true, phoneConnected: true)) == .passengerMode, "passenger mode is explicit")
         try expect(machine.resolve(.init(online: false, phoneConnected: false)) == .offline, "offline precedes disconnected phone")
         try expect(!machine.resolve(.init(phoneConnected: false)).restrictsInteraction, "disconnected phone does not lock parked controls")
+        try expect(machine.resolve(.init(locationAvailable: false)) == .locationUnavailable, "missing GPS is explicit")
+
+        let start = Date(timeIntervalSince1970: 1_000)
+        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start) == .parked, "one fast sample does not enter moving")
+        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start.addingTimeInterval(2.9)) == .parked, "movement requires sustained speed")
+        try expect(machine.update(.init(speedMetresPerSecond: 8, phoneConnected: true), at: start.addingTimeInterval(3)) == .moving, "sustained speed enters moving")
+        try expect(machine.update(.init(speedMetresPerSecond: 0, phoneConnected: true), at: start.addingTimeInterval(4)) == .moving, "one slow sample does not park")
+        try expect(machine.update(.init(speedMetresPerSecond: 0, phoneConnected: true), at: start.addingTimeInterval(14)) == .parked, "sustained low speed parks")
     }
 
     private static func checkRecoveryStore() async throws {
