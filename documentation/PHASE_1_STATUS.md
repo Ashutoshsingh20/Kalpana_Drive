@@ -1,38 +1,45 @@
 # Phase 1 status
 
-## Working now
+## Implemented with live platform data
 
-- SwiftUI application shell with a landscape dashboard.
-- Live clock/date.
-- Clearly labelled placeholder map and simulated GPS speed.
-- Deterministic parked/moving simulation through System Health.
-- Navigation, media, and phone cards.
-- Simulated local media play/pause state.
-- Day/night/high-sunlight appearance selection.
-- Home, Map, Music, Phone, and Settings controls.
-- Push-to-talk interaction simulation using a local intent router.
-- Provider abstractions for navigation, routes, location, search, media, audio route, phone connection, and voice commands.
-- Atomic recovery store and executable domain checks.
-- Versioned shared-protocol envelope schema and security contract.
+- SwiftUI landscape dashboard for iPad.
+- Live clock and date.
+- MapKit map showing the iPad's real current location and heading.
+- Core Location speed with authorization and accuracy reporting.
+- Network reachability using `NWPathMonitor`.
+- Current system-music metadata and playback commands using `MPMusicPlayerController`.
+- Current audio-output inspection using `AVAudioSession`.
+- Speech recognition and spoken responses using Speech and AVFoundation.
+- Battery, charging, low-power, and thermal-state monitoring.
+- Driving-state restrictions derived from live system state.
+- MapKit route calculation service for real destinations.
+- Live system-health diagnostics.
+- Atomic local recovery store and deterministic domain checks.
+- Versioned shared-protocol envelope and security contract.
 
-## Platform limitations
+## Explicitly unavailable
 
-- This environment has Swift installed but its active developer directory is an incomplete Command Line Tools build, not full Xcode. The dependency-free domain check target can be verified here; XCTest, an iPadOS SDK build, and simulator run cannot be honestly claimed until opened with full Xcode.
-- GPS, MapKit routing, Bluetooth route inspection, speech recognition, text-to-speech, battery/thermal monitoring, and Apple Music are provider contracts or UI placeholders, not live integrations yet.
-- iPadOS does not provide unrestricted phone notification or telephony interception. iPhone behavior will coexist with supported Continuity features.
-- The Ignis stereo exposes only capabilities supported by its Bluetooth profile and iPadOS public APIs; Kalpana Drive cannot guarantee third-party app control or force audio reconnection.
-- Offline turn-by-turn routing is limited by the selected navigation provider. Phase 1 persists route state but does not claim a full offline map engine.
+- iPhone and Android companion connections are not implemented.
+- Calls, phone notifications, message replies, and phone media relay are not displayed or represented as functional.
+- Ignis vehicle telemetry is unavailable without a real, tested OBD-II integration.
+- Genuine Apple CarPlay and Android Auto receiver modes are outside product scope.
 
-## Incomplete Phase 1 work
+Unavailable capabilities must remain visibly unavailable. They must not be replaced with fixed values, synthetic events, fake success messages, static connection states presented as real, or interaction simulations.
 
-- Live Core Location and motion adapter with accuracy filtering/hysteresis.
-- MapKit search, route calculation, alternatives, and restored route rendering.
-- Saved-place repository and full settings persistence.
-- Real MediaPlayer/AVFoundation adapters and audio ducking.
-- Speech framework adapter, interruptible synthesis, and confirmation UI.
-- Emergency screen and offline checklists.
-- Battery, charging, network, storage, and thermal health adapters.
-- Real crash launch detection and recovery orchestration around `RecoveryStore`.
-- UI tests on iPad sizes, accessibility audit, and physical-device heat/power testing.
+## Physical-device validation still required
 
-These are not represented as complete in the app.
+- Verify GPS accuracy and speed behavior during real road use.
+- Verify Bluetooth A2DP/HFP/car-audio route detection with the Ignis stereo.
+- Verify microphone recognition in cabin noise.
+- Verify Apple Music transport control behavior.
+- Verify heat, direct sunlight, charging, and low-power behavior.
+- Verify driving-lock behavior across low-speed traffic and GPS drift.
+
+## Next production work
+
+- Add a saved-place repository and real MapKit destination-search UI.
+- Render active MapKit route polylines and step progress.
+- Add route recovery across process termination.
+- Build authenticated companion apps before enabling phone features.
+- Add emergency UI backed by real system calling and location-sharing capabilities.
+- Create a signed Xcode application target with required location, microphone, and speech permission descriptions.
