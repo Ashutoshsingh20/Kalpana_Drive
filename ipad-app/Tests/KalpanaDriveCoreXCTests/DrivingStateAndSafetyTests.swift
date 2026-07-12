@@ -5,15 +5,13 @@ final class DrivingStateAndSafetyTests: XCTestCase {
     func testMovementRequiresSustainedSpeedAndParkingRequiresLongerLowSpeed() {
         var machine = DrivingStateMachine(movingConfirmationDuration: 3, parkedConfirmationDuration: 10)
         let start = Date(timeIntervalSince1970: 1_000)
-        let connected = { (speed: Double) in
-            DrivingContext(speedMetresPerSecond: speed)
-        }
+        let context = { (speed: Double) in DrivingContext(speedMetresPerSecond: speed) }
 
-        XCTAssertEqual(machine.update(connected(8), at: start), .parked)
-        XCTAssertEqual(machine.update(connected(8), at: start.addingTimeInterval(2.9)), .parked)
-        XCTAssertEqual(machine.update(connected(8), at: start.addingTimeInterval(3)), .moving)
-        XCTAssertEqual(machine.update(connected(0), at: start.addingTimeInterval(4)), .moving)
-        XCTAssertEqual(machine.update(connected(0), at: start.addingTimeInterval(14)), .parked)
+        XCTAssertEqual(machine.update(context(8), at: start), .parked)
+        XCTAssertEqual(machine.update(context(8), at: start.addingTimeInterval(2.9)), .parked)
+        XCTAssertEqual(machine.update(context(8), at: start.addingTimeInterval(3)), .moving)
+        XCTAssertEqual(machine.update(context(0), at: start.addingTimeInterval(4)), .moving)
+        XCTAssertEqual(machine.update(context(0), at: start.addingTimeInterval(14)), .parked)
     }
 
     func testSafetyPrecedenceIsDeterministic() {
@@ -30,7 +28,7 @@ final class DrivingStateAndSafetyTests: XCTestCase {
         XCTAssertEqual(state, .emergency)
     }
 
-    func testMovingStateBlocksSettingsAndTypingButAllowsVoiceAndEmergency() {
+    func testMovingStateBlocksComplexInteractionButAllowsVoiceMediaAndEmergency() {
         let policy = DrivingSafetyPolicy()
         XCTAssertFalse(policy.evaluate(.openSettings, state: .moving, source: .touch).isAllowed)
         XCTAssertFalse(policy.evaluate(.typeDestination, state: .moving, source: .touch).isAllowed)
@@ -38,6 +36,18 @@ final class DrivingStateAndSafetyTests: XCTestCase {
         XCTAssertTrue(policy.evaluate(.controlMedia, state: .moving, source: .touch).isAllowed)
         XCTAssertTrue(policy.evaluate(.emergency, state: .moving, source: .touch).isAllowed)
         XCTAssertFalse(policy.evaluate(.openSettings, state: .locationUnavailable, source: .touch).isAllowed)
+    }
+
+    func testPhoneAndExternalMediaSafetyRules() {
+        let policy = DrivingSafetyPolicy()
+        XCTAssertFalse(policy.evaluate(.browseContacts, state: .moving, source: .touch).isAllowed)
+        XCTAssertTrue(policy.evaluate(.browseContacts, state: .moving, source: .voice).isAllowed)
+        XCTAssertFalse(policy.evaluate(.typePhoneNumber, state: .moving, source: .touch).isAllowed)
+        XCTAssertTrue(policy.evaluate(.typePhoneNumber, state: .parked, source: .touch).isAllowed)
+        XCTAssertTrue(policy.evaluate(.placeCall, state: .moving, source: .touch).isAllowed)
+        XCTAssertFalse(policy.evaluate(.openExternalMedia, state: .moving, source: .touch).isAllowed)
+        XCTAssertTrue(policy.evaluate(.openExternalMedia, state: .parked, source: .touch).isAllowed)
+        XCTAssertFalse(policy.evaluate(.manageDevices, state: .moving, source: .touch).isAllowed)
     }
 
     func testRouteRepositoryRoundTripAndClear() async throws {
