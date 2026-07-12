@@ -23,7 +23,7 @@ Phone calls, phone notifications, and cross-device messaging remain unavailable 
 
 ## Repository layout
 
-- `ipad-app/` — Swift iPad application and testable core
+- `ipad-app/` — Swift iPad application, XcodeGen project definition, and testable core
 - `shared-protocol/` — versioned device-message contract for future real companions
 - `documentation/` — architecture, safety, platform limitations, and implementation status
 - `tests/` — validation plans and protocol fixtures
@@ -31,7 +31,7 @@ Phone calls, phone notifications, and cross-device messaging remain unavailable 
 
 ## Required permissions
 
-The final iPad app target must include these usage descriptions:
+The iPad application Info.plist contains:
 
 - `NSLocationWhenInUseUsageDescription`
 - `NSMicrophoneUsageDescription`
@@ -39,6 +39,31 @@ The final iPad app target must include these usage descriptions:
 
 Without these keys, iPadOS will correctly refuse the associated live capability.
 
-## Build
+## Generate and build the iPad project
 
-Open `ipad-app/Package.swift` using a full Xcode installation with the iPadOS SDK, select the `KalpanaDriveApp` scheme and run on a physical iPad. GPS speed, Bluetooth audio routing, microphone input, battery state, and thermal behavior must be validated on physical hardware; simulator-only results are not accepted as production validation.
+Requirements:
+
+- Full Xcode installation with the iPadOS 17 SDK or newer
+- XcodeGen
+
+```bash
+cd ipad-app
+xcodegen generate
+open KalpanaDrive.xcodeproj
+```
+
+Select the `KalpanaDriveApp` scheme, configure your Apple development team, choose a physical iPad, and Run.
+
+For a signing-free simulator compile check:
+
+```bash
+./scripts/build.sh
+```
+
+For dependency-free core checks:
+
+```bash
+./scripts/test.sh
+```
+
+GPS speed, Bluetooth audio routing, microphone input, battery state, and thermal behavior must be validated on physical hardware; simulator-only results are not accepted as production validation.
