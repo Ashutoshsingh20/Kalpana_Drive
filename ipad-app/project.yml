@@ -37,6 +37,7 @@ targets:
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
         NSLocationWhenInUseUsageDescription: Kalpana Drive uses the iPad's location for the live map, driving speed, route guidance, trip recording, and parking location.
+        NSContactsUsageDescription: "Kalpana Drive uses contacts stored on this iPad to let you search people and start calls."
         NSMicrophoneUsageDescription: Kalpana Drive uses the microphone only when you activate voice control.
         NSSpeechRecognitionUsageDescription: Kalpana Drive converts your spoken driving commands into text on request.
         NSLocalNetworkUsageDescription: Kalpana Drive connects directly to your nearby iPhone companion for approved contacts, Apple Music control, destinations, location, and device health.

@@ -2,43 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key>
-    <string>Kalpana Drive Phone</string>
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>$(PRODUCT_NAME)</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>NSAppleMusicUsageDescription</key>
-    <string>Kalpana Drive uses Apple Music access to show and control the Apple Music queue playing on this iPhone.</string>
-    <key>NSContactsUsageDescription</key>
-    <string>Kalpana Drive shares contacts you approve with your paired iPad so you can find people while parked and start calls.</string>
-    <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>Kalpana Drive reads event locations you approve so destinations can be handed to the iPad dashboard.</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Kalpana Drive shares the iPhone location with your paired iPad only while the companion is enabled.</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Kalpana Drive connects directly to your nearby iPad over the local network.</string>
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_kalpana-drive._tcp</string>
-    </array>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-    </array>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
 </dict>
 </plist>

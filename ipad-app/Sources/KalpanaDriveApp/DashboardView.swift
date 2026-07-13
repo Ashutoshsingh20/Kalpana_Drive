@@ -313,134 +313,638 @@ private struct DeviceSummary: View {
 private struct NavigationMapSection: View {
     @ObservedObject var model: DashboardViewModel
     @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
-
-    private var typingBlocked: Bool {
-        switch model.drivingState {
-        case .moving, .emergency, .thermalLimit, .lowPower:
-            true
-        default:
-            false
-        }
-    }
+    @State private var showParkingSheet = false
+    @State private var showSavedPlaces = false
+    @State private var showTripHistory = false
 
     var body: some View {
-        DriveCard(insets: 0) {
-            ZStack(alignment: .top) {
-                Map(position: $position) {
-                    UserAnnotation()
-                    if let route = model.mapRoute {
-                        MapPolyline(route.polyline).stroke(.primary, lineWidth: 8)
-                    }
-                    ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { item in
-                        MapPolyline(item.element.polyline).stroke(.secondary.opacity(0.65), lineWidth: 4)
-                    }
-                }
-                .mapStyle(.standard(elevation: .realistic))
-                .mapControls {
-                    MapCompass()
-                    MapScaleView()
-                    MapUserLocationButton()
-                }
+        ZStack(alignment: .top) {
+            // Full-bleed live map
+            mapView
 
-                VStack(spacing: 10) {
-                    searchControls
-                    Spacer()
-                    routeControls
+            // Overlaid controls (search, nav strip, action bar)
+            VStack(spacing: 0) {
+                searchOverlay
+                Spacer()
+                if let _ = model.activeRoute {
+                    navStrip
                 }
-                .padding(14)
+                actionBar
             }
+            .padding(14)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.8), lineWidth: 2))
+        // Parking auto-prompt
+        .alert("Save Parking Location?", isPresented: Binding(
+            get: { model.showsParkingPrompt },
+            set: { _ in model.dismissParkingPrompt() }
+        )) {
+            Button("Save") { model.acceptParkingPrompt() }
+            Button("Dismiss", role: .cancel) { model.dismissParkingPrompt() }
+        } message: {
+            Text("It looks like you have stopped. Do you want to save your parking location?")
+        }
+        // Parking sheet
+        .sheet(isPresented: $showParkingSheet) {
+            ParkingSheet(model: model)
+        }
+        // Saved places sheet
+        .sheet(isPresented: $showSavedPlaces) {
+            SavedPlacesSheet(model: model)
+        }
+        // Trip history sheet
+        .sheet(isPresented: $showTripHistory) {
+            TripHistorySheet(model: model)
         }
     }
 
-    @ViewBuilder
-    private var searchControls: some View {
-        if typingBlocked {
-            Text("Destination typing is unavailable while driving. Say “Siri, search for <place> in Kalpana Drive”.")
-                .font(.headline)
-                .padding(14)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-        } else {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    TextField("Search any place, landmark, business, or address", text: $model.destinationQuery)
+    // MARK: Map
+    @ViewBuilder private var mapView: some View {
+        Map(position: $position) {
+            UserAnnotation()
+            // Active route polyline
+            if let route = model.mapRoute {
+                MapPolyline(route.polyline)
+                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
+            }
+            // Alternative route polylines
+            ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { item in
+                MapPolyline(item.element.polyline)
+                    .stroke(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+            }
+            // Parking marker
+            if let parking = model.parkedLocation {
+                Annotation("Parked Here", coordinate: CLLocationCoordinate2D(
+                    latitude: parking.coordinate.latitude,
+                    longitude: parking.coordinate.longitude
+                )) {
+                    ZStack {
+                        Circle().fill(Color.orange).frame(width: 36, height: 36)
+                        Image(systemName: "car.fill").foregroundColor(.white).font(.headline)
+                    }
+                }
+            }
+        }
+        .mapStyle(currentMapStyle)
+        .mapControls {
+            MapCompass()
+            MapScaleView()
+            MapUserLocationButton()
+        }
+        .ignoresSafeArea()
+    }
+
+    private var currentMapStyle: MapStyle {
+        switch model.mapStyle {
+        case .standard:
+            return .standard(elevation: .realistic, pointsOfInterest: .all)
+        case .satellite:
+            return .imagery(elevation: .realistic)
+        case .hybrid:
+            return .hybrid(elevation: .realistic, pointsOfInterest: .all)
+        }
+    }
+
+    // MARK: Search Overlay
+    @ViewBuilder private var searchOverlay: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                // Search bar
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Search destination, landmark, or address", text: $model.destinationQuery)
                         .textFieldStyle(.plain)
-                        .font(.title3.bold())
+                        .font(.headline)
                         .submitLabel(.search)
                         .onSubmit { model.searchDestinations() }
+                    if !model.destinationQuery.isEmpty {
+                        Button(action: {
+                            model.destinationQuery = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }.buttonStyle(.plain)
+                    }
                     Button {
                         model.searchDestinations()
                     } label: {
                         Group {
                             if model.isSearching {
-                                ProgressView()
+                                ProgressView().tint(.primary)
                             } else {
-                                Image(systemName: "magnifyingglass").font(.title2.bold())
+                                Image(systemName: "magnifyingglass").font(.title3.bold())
                             }
                         }
-                        .frame(width: 54, height: 54)
+                        .frame(width: 42, height: 42)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.destinationQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
                 .background(.regularMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                if !model.searchResults.isEmpty {
-                    VStack(spacing: 0) {
-                        ForEach(Array(model.searchResults.prefix(6))) { result in
-                            Button {
-                                model.startNavigation(to: result)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(result.name).font(.headline).lineLimit(1)
-                                        Text(result.address).font(.caption).lineLimit(1)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                                }
-                                .frame(minHeight: 58)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            Divider()
+                // Map style toggle
+                Menu {
+                    ForEach(DriveMapStyle.allCases) { style in
+                        Button(action: { model.mapStyle = style }) {
+                            Label(style.rawValue, systemImage: style.icon)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var routeControls: some View {
-        if let route = model.activeRoute {
-            HStack(spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(route.nextInstruction).font(.title2.bold()).lineLimit(2)
-                    Text("\(distance(route.distanceRemainingMetres)) • ETA \(route.expectedArrival.formatted(date: .omitted, time: .shortened))")
+                } label: {
+                    Image(systemName: "map")
                         .font(.headline)
+                        .frame(width: 44, height: 44)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                Spacer()
-                Button("Cancel Route") { model.cancelNavigation() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
             }
-            .padding(16)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            // Autocomplete dropdown
+            if !model.searchSuggestions.isEmpty && !model.destinationQuery.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(model.searchSuggestions.prefix(5), id: \.self) { suggestion in
+                        Button {
+                            model.destinationQuery = suggestion
+                            model.searchDestinations()
+                        } label: {
+                            HStack {
+                                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).frame(width: 24)
+                                Text(suggestion).font(.subheadline).lineLimit(1)
+                                Spacer()
+                            }
+                            .frame(minHeight: 46)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
+                    }
+                }
+                .padding(.horizontal, 12)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            // Search results
+            if !model.searchResults.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(model.searchResults.prefix(8))) { result in
+                        Button {
+                            model.startNavigation(to: result)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "mappin.circle.fill").foregroundStyle(.blue).font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.name).font(.headline).lineLimit(1)
+                                    Text(result.address).font(.caption).lineLimit(1).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill").foregroundStyle(.secondary)
+                            }
+                            .frame(minHeight: 58)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
+                    }
+                }
+                .padding(.horizontal, 14)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            // Saved place shortcuts (visible when search is empty)
+            if model.destinationQuery.isEmpty && model.searchResults.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(model.savedPlaces.prefix(6)) { place in
+                            Button {
+                                model.startNavigation(to: Destination(
+                                    name: place.name,
+                                    address: place.address,
+                                    coordinate: place.coordinate,
+                                    kind: .favourite
+                                ))
+                            } label: {
+                                Label(place.name, systemImage: savedPlaceIcon(place.label))
+                                    .font(.subheadline.bold())
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 38)
+                                    .background(.regularMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if !model.recentDestinations.isEmpty {
+                            ForEach(model.recentDestinations.prefix(3)) { dest in
+                                Button {
+                                    model.startNavigation(to: dest)
+                                } label: {
+                                    Label(dest.name, systemImage: "clock")
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .frame(height: 38)
+                                        .background(.regularMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    private func distance(_ metres: Double) -> String {
-        if metres >= 1_000 {
-            return String(format: "%.1f km", metres / 1_000)
+    // MARK: Nav Strip
+    @ViewBuilder private var navStrip: some View {
+        if let _ = model.activeRoute {
+            VStack(spacing: 8) {
+                // Off-route warning
+                if model.navIsOffRoute {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text("Off route — recalculating…").font(.headline.bold())
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                // Main nav strip
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !model.navNextInstruction.isEmpty {
+                            Text(model.navNextInstruction)
+                                .font(.title2.bold())
+                                .lineLimit(2)
+                        } else {
+                            Text(model.activeRoute?.nextInstruction ?? "")
+                                .font(.title2.bold())
+                                .lineLimit(2)
+                        }
+                        HStack(spacing: 12) {
+                            Label(distanceString(model.navDistanceRemaining > 0 ? model.navDistanceRemaining : (model.activeRoute?.distanceRemainingMetres ?? 0)), systemImage: "road.lanes")
+                            Label("ETA \((model.navETA > Date.distantPast ? model.navETA : (model.activeRoute?.expectedArrival ?? Date())).formatted(date: .omitted, time: .shortened))", systemImage: "clock")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    // Progress ring
+                    ZStack {
+                        Circle().stroke(Color.secondary.opacity(0.3), lineWidth: 5)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(model.navProgressPercent / 100))
+                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        Text("\(Int(model.navProgressPercent))%")
+                            .font(.caption2.bold())
+                    }
+                    .frame(width: 52, height: 52)
+
+                    Button("Cancel") { model.cancelNavigation() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .controlSize(.regular)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                // Alternative routes strip
+                if !model.alternativeRoutes.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            Text("Alternatives:").font(.caption.bold()).foregroundStyle(.secondary)
+                            ForEach(Array(model.alternativeRoutes.prefix(3).enumerated()), id: \.offset) { i, route in
+                                Button {
+                                    model.selectAlternativeRoute(route)
+                                } label: {
+                                    VStack(spacing: 2) {
+                                        Text(distanceString(route.distance)).font(.caption.bold())
+                                        Text(durationString(route.expectedTravelTime)).font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 40)
+                                    .background(.regularMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    // MARK: Action Bar
+    private var actionBar: some View {
+        HStack(spacing: 10) {
+            // Trip recording
+            Button {
+                if model.isTripRecording {
+                    model.stopTripRecording()
+                } else {
+                    model.startTripRecording()
+                }
+            } label: {
+                Label(
+                    model.isTripRecording ? "Stop Trip" : "Record Trip",
+                    systemImage: model.isTripRecording ? "stop.circle.fill" : "record.circle"
+                )
+                .font(.subheadline.bold())
+                .padding(.horizontal, 14)
+                .frame(height: 42)
+                .background(model.isTripRecording ? Color.red.opacity(0.85) : Color.primary.opacity(0.12))
+                .foregroundColor(model.isTripRecording ? .white : .primary)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+
+            // Trip history
+            Button {
+                showTripHistory = true
+            } label: {
+                Label("Trips (\(model.trips.count))", systemImage: "list.bullet.rectangle")
+                    .font(.subheadline.bold())
+                    .padding(.horizontal, 14)
+                    .frame(height: 42)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Parking
+            if let _ = model.parkedLocation {
+                Button {
+                    model.navigateToParking()
+                } label: {
+                    Label("Navigate to Car", systemImage: "car.fill")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 14)
+                        .frame(height: 42)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                Button {
+                    model.clearParking()
+                } label: {
+                    Image(systemName: "car.badge.minus")
+                        .font(.headline)
+                        .frame(width: 42, height: 42)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    showParkingSheet = true
+                } label: {
+                    Label("Save Parking", systemImage: "car.badge.plus")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 14)
+                        .frame(height: 42)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Saved places panel
+            Button {
+                showSavedPlaces = true
+            } label: {
+                Label("Saved", systemImage: "bookmark.fill")
+                    .font(.subheadline.bold())
+                    .padding(.horizontal, 14)
+                    .frame(height: 42)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func distanceString(_ metres: Double) -> String {
+        if metres >= 1_000 { return String(format: "%.1f km", metres / 1_000) }
         return "\(Int(metres.rounded())) m"
+    }
+
+    private func durationString(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds / 60)
+        if minutes < 60 { return "\(minutes) min" }
+        return "\(minutes / 60)h \(minutes % 60)m"
+    }
+
+    private func savedPlaceIcon(_ label: SavedPlaceLabel) -> String {
+        switch label {
+        case .home: return "house.fill"
+        case .work: return "briefcase.fill"
+        case .college: return "building.columns.fill"
+        case .custom: return "bookmark.fill"
+        }
+    }
+}
+
+// MARK: Parking Sheet
+private struct ParkingSheet: View {
+    @ObservedObject var model: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Parking Details")) {
+                    TextField("Note (e.g. near elevator)", text: $model.parkingNote)
+                    TextField("Floor (e.g. B2)", text: $model.parkingFloor)
+                    TextField("Slot (e.g. A-21)", text: $model.parkingSlot)
+                }
+                Section {
+                    Button("Save Parking Location") {
+                        model.saveCurrentParking()
+                        dismiss()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .navigationTitle("Save Parking")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: Saved Places Sheet
+private struct SavedPlacesSheet: View {
+    @ObservedObject var model: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !model.savedPlaces.isEmpty {
+                    Section(header: Text("Saved Places")) {
+                        ForEach(model.savedPlaces) { place in
+                            HStack {
+                                Image(systemName: savedPlaceIcon(place.label))
+                                    .foregroundStyle(.blue)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.name).font(.headline)
+                                    Text(place.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                Spacer()
+                                Button {
+                                    model.startNavigation(to: Destination(
+                                        name: place.name,
+                                        address: place.address,
+                                        coordinate: place.coordinate,
+                                        kind: .favourite
+                                    ))
+                                    dismiss()
+                                } label: {
+                                    Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        }
+                        .onDelete { offsets in
+                            offsets.forEach { i in
+                                model.deleteSavedPlace(id: model.savedPlaces[i].id)
+                            }
+                        }
+                    }
+                }
+
+                if !model.recentDestinations.isEmpty {
+                    Section(header: Text("Recents")) {
+                        ForEach(model.recentDestinations) { dest in
+                            HStack {
+                                Image(systemName: "clock").foregroundStyle(.secondary).frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(dest.name).font(.headline)
+                                    Text(dest.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                Spacer()
+                                Button {
+                                    model.startNavigation(to: dest)
+                                    dismiss()
+                                } label: {
+                                    Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        }
+                    }
+                    Section {
+                        Button("Clear Recent Destinations", role: .destructive) {
+                            model.clearRecentDestinations()
+                        }
+                    }
+                }
+
+                if model.savedPlaces.isEmpty && model.recentDestinations.isEmpty {
+                    ContentUnavailableView("No Saved Places", systemImage: "bookmark",
+                        description: Text("Saved places will appear here. Search for a location and mark it as Home, Work, or a custom place."))
+                }
+            }
+            .navigationTitle("Places")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func savedPlaceIcon(_ label: SavedPlaceLabel) -> String {
+        switch label {
+        case .home: return "house.fill"
+        case .work: return "briefcase.fill"
+        case .college: return "building.columns.fill"
+        case .custom: return "bookmark.fill"
+        }
+    }
+}
+
+// MARK: Trip History Sheet
+private struct TripHistorySheet: View {
+    @ObservedObject var model: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if model.trips.isEmpty {
+                    ContentUnavailableView(
+                        "No Trips Recorded",
+                        systemImage: "car.rear.road.lane",
+                        description: Text("Tap \"Record Trip\" on the map to start tracking a drive. Your trip history will appear here.")
+                    )
+                } else {
+                    List {
+                        ForEach(model.trips.reversed()) { trip in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(trip.startTime.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.headline)
+                                    Spacer()
+                                    if trip.isPrivate {
+                                        Label("Private", systemImage: "eye.slash").font(.caption)
+                                    }
+                                }
+                                HStack(spacing: 18) {
+                                    Label(String(format: "%.1f km", trip.distanceMetres / 1000), systemImage: "road.lanes")
+                                    Label(durationString(trip.durationSeconds), systemImage: "clock")
+                                    Label(String(format: "%.0f km/h avg", trip.averageSpeedKPH), systemImage: "speedometer")
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                if !trip.notes.isEmpty {
+                                    Text(trip.notes).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    model.deleteTripLog(id: trip.id)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Trip History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func durationString(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds / 60)
+        if minutes < 60 { return "\(minutes) min" }
+        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
@@ -463,87 +967,519 @@ private struct MusicSection: View {
 
 private struct PhoneSection: View {
     @ObservedObject var model: DashboardViewModel
+    @State private var selectedContact: KalpanaContact?
+    @State private var filterTab: FilterTab = .all
+
+    enum FilterTab: String, CaseIterable, Identifiable {
+        case all = "All"
+        case favourites = "Favourites"
+        case recents = "Recents"
+        var id: Self { self }
+    }
 
     var body: some View {
+        HStack(spacing: 16) {
+            // Left Pane: Contact Directory
+            VStack(spacing: 12) {
+                HStack {
+                    Label("NATIVE IPAD CONTACTS", systemImage: "person.2.fill")
+                        .font(.headline)
+                    Spacer()
+                    Text("Permission: \(model.contactsPermissionStatus)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Check authorization status
+                if model.contactsPermissionStatus == "Denied" || model.contactsPermissionStatus == "Restricted" {
+                    permissionDeniedView
+                } else if model.contactsPermissionStatus == "Not Determined" {
+                    permissionRequestView
+                } else {
+                    contactsListView
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            // Right Pane: Detail & Keypad
+            VStack(spacing: 16) {
+                if let contact = selectedContact {
+                    contactDetailView(contact)
+                } else {
+                    keypadAndManualDialView
+                }
+            }
+            .frame(width: 380)
+        }
+        .onAppear {
+            if model.contactsPermissionStatus == "Authorized" {
+                model.fetchNativeContacts()
+            }
+        }
+    }
+
+    private var permissionRequestView: some View {
         DriveCard {
-            VStack(spacing: 18) {
-                Image(systemName: model.iphoneConnected ? "iphone.gen2.radiowaves.left.and.right" : "phone")
-                    .font(.system(size: 70, weight: .bold))
-                Text(model.iphoneConnected ? "iPhone companion connected" : "iPad standalone mode")
-                    .font(.system(size: 34, weight: .bold))
-                Text(phoneDescription)
-                    .font(.title3)
+            VStack(spacing: 16) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 60))
+                Text("Contacts Permission Required")
+                    .font(.title2.bold())
+                Text("Kalpana Drive uses contacts stored on this iPad to let you search people and start calls.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 780)
-
-                if let peer = model.iphoneBridge.pendingPeer {
-                    HStack {
-                        Text("Allow connection from \(peer.displayName)?").font(.headline)
-                        Button("Reject") { model.rejectIPhoneConnection() }.buttonStyle(.bordered)
-                        Button("Approve") { model.approveIPhoneConnection() }.buttonStyle(.borderedProminent)
-                    }
+                Button("Enable Contacts") {
+                    model.requestContactsPermission()
                 }
-
-                if model.iphoneConnected {
-                    Text("\(model.iphoneContacts.count) contacts received")
-                        .font(.headline)
-                    Button("Disconnect iPhone") { model.disconnectIPhone() }
-                        .buttonStyle(.bordered)
-                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    private var phoneDescription: String {
-        if model.iphoneConnected {
-            return "The iPad remains fully usable by itself. The iPhone connection only adds optional contacts and Apple Music control."
+    private var permissionDeniedView: some View {
+        DriveCard {
+            VStack(spacing: 16) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 60))
+                Text("Contacts Access Disabled")
+                    .font(.title2.bold())
+                Text("Please enable Contacts access in the iPad System Settings to view and call your contacts.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        return "Navigation, YouTube Music, Siri shortcuts, GPS, battery, and diagnostics work without an iPhone. Calls and iPhone contacts can be added later through the companion."
+    }
+
+    private var contactsListView: some View {
+        VStack(spacing: 10) {
+            // Search field
+            HStack {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Search by name, organization, or phone number", text: $model.contactQuery)
+                    .textFieldStyle(.plain)
+                    .onSubmit {
+                        model.updateContactQuery(model.contactQuery)
+                    }
+                if !model.contactQuery.isEmpty {
+                    Button(action: { model.contactQuery = "" }) {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.06))
+            .cornerRadius(8)
+
+            // Segmented filter
+            Picker("Filter", selection: $filterTab) {
+                ForEach(FilterTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            // Contact list
+            let list = contactsForCurrentTab
+            if list.isEmpty {
+                DriveCard {
+                    VStack(spacing: 8) {
+                        Image(systemName: "person.crop.circle.badge.questionmark")
+                            .font(.system(size: 40))
+                        Text("No Contacts Found")
+                            .font(.headline)
+                        Text(model.contactQuery.isEmpty ? "Your contacts directory is empty." : "No contacts matched your search.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(list) { contact in
+                            Button {
+                                selectedContact = contact
+                            } label: {
+                                HStack(spacing: 12) {
+                                    // Initials or Photo
+                                    contactPhotoOrInitials(contact: contact, size: 48)
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(contact.displayName)
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                        if !contact.organisation.isEmpty {
+                                            Text(contact.organisation)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                    if contact.isFavourite {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.yellow)
+                                    }
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(10)
+                                .background(selectedContact?.id == contact.id ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var contactsForCurrentTab: [KalpanaContact] {
+        switch filterTab {
+        case .all:
+            return model.filteredContacts
+        case .favourites:
+            let query = model.contactQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            let favs = model.nativeFavourites
+            if query.isEmpty { return favs }
+            return favs.filter {
+                $0.displayName.localizedCaseInsensitiveContains(query) ||
+                $0.organisation.localizedCaseInsensitiveContains(query)
+            }
+        case .recents:
+            let query = model.contactQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            let recents = model.recentCalls
+            if query.isEmpty { return recents }
+            return recents.filter {
+                $0.displayName.localizedCaseInsensitiveContains(query) ||
+                $0.organisation.localizedCaseInsensitiveContains(query)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func contactPhotoOrInitials(contact: KalpanaContact, size: CGFloat) -> some View {
+        Group {
+            if let imgData = contact.thumbnailImageData, let uiImage = UIImage(data: imgData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(contact.initials)
+                    .font(.system(size: size * 0.4, weight: .bold))
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.primary.opacity(0.15))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.primary.opacity(0.5), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func contactDetailView(_ contact: KalpanaContact) -> some View {
+        DriveCard {
+            VStack(spacing: 16) {
+                // Header: Back button & Star
+                HStack {
+                    Button(action: { selectedContact = nil }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.headline)
+                    }
+                    Spacer()
+                    Button(action: {
+                        model.toggleFavourite(for: contact)
+                        // Update local state copy
+                        var updated = contact
+                        updated.isFavourite.toggle()
+                        selectedContact = updated
+                    }) {
+                        Image(systemName: contact.isFavourite ? "star.fill" : "star")
+                            .font(.title2)
+                            .foregroundColor(contact.isFavourite ? .yellow : .primary)
+                    }
+                }
+
+                // Photo, Name, Organization
+                contactPhotoOrInitials(contact: contact, size: 90)
+                
+                VStack(spacing: 4) {
+                    Text(contact.displayName)
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    if !contact.organisation.isEmpty {
+                        Text(contact.organisation)
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                Divider()
+
+                // Phone Numbers list with Call Buttons
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(contact.phoneNumbers, id: \.self) { phone in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(phone.label.uppercased())
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Text(phone.number)
+                                        .font(.title3.bold())
+                                    Spacer()
+                                    Button(action: {
+                                        model.call(number: phone.number, contactId: contact.id)
+                                    }) {
+                                        Image(systemName: "phone.fill")
+                                            .font(.headline)
+                                            .padding(12)
+                                            .background(Color.primary)
+                                            .foregroundColor(Color(white: 0.1))
+                                            .clipShape(Circle())
+                                    }
+                                }
+                            }
+                            .padding(10)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var keypadAndManualDialView: some View {
+        DriveCard {
+            VStack(spacing: 14) {
+                // Dialer display
+                HStack {
+                    Text(model.phoneNumberToDial)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Spacer()
+                    if !model.phoneNumberToDial.isEmpty {
+                        Button(action: {
+                            model.phoneNumberToDial.removeLast()
+                        }) {
+                            Image(systemName: "delete.left.fill")
+                                .font(.title)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(height: 50)
+                .padding(.horizontal, 12)
+                .background(Color.primary.opacity(0.06))
+                .cornerRadius(8)
+
+                // Keypad grid (3x4)
+                let keys = [
+                    ["1", "2", "3"],
+                    ["4", "5", "6"],
+                    ["7", "8", "9"],
+                    ["*", "0", "#"]
+                ]
+
+                VStack(spacing: 10) {
+                    ForEach(keys, id: \.self) { row in
+                        HStack(spacing: 10) {
+                            ForEach(row, id: \.self) { key in
+                                Button(action: {
+                                    model.phoneNumberToDial.append(key)
+                                }) {
+                                    Text(key)
+                                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                                        .frame(maxWidth: .infinity, minHeight: 52)
+                                        .background(Color.primary.opacity(0.08))
+                                        .cornerRadius(8)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
+                // Call button
+                Button(action: {
+                    model.callPhoneNumber()
+                }) {
+                    HStack {
+                        Image(systemName: "phone.fill")
+                        Text("Call Number")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(model.phoneNumberToDial.isEmpty ? Color.secondary.opacity(0.3) : Color.primary)
+                    .foregroundColor(model.phoneNumberToDial.isEmpty ? .secondary : Color(white: 0.1))
+                    .cornerRadius(8)
+                }
+                .disabled(model.phoneNumberToDial.isEmpty)
+            }
+        }
     }
 }
 
 private struct SettingsSection: View {
     @ObservedObject var model: DashboardViewModel
+    @State private var newAvoidRoad = ""
 
     var body: some View {
-        DriveCard {
-            VStack(spacing: 22) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 68, weight: .bold))
-                Text("Kalpana Drive Settings")
-                    .font(.system(size: 36, weight: .bold))
+        DriveCard(insets: 0) {
+            ScrollView {
+                VStack(spacing: 28) {
+                    HStack {
+                        Label("SETTINGS", systemImage: "gearshape.fill").font(.headline)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
 
-                Picker("Appearance", selection: Binding(
-                    get: { model.appearance },
-                    set: { model.setAppearance($0) }
-                )) {
-                    Text("Day").tag(DriveAppearance.day)
-                    Text("Night").tag(DriveAppearance.night)
-                    Text("High sunlight").tag(DriveAppearance.highSunlight)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 620)
+                    // Appearance
+                    settingsGroup(title: "Appearance", icon: "circle.lefthalf.filled") {
+                        Picker("Appearance", selection: Binding(
+                            get: { model.appearance },
+                            set: { model.setAppearance($0) }
+                        )) {
+                            Text("Day").tag(DriveAppearance.day)
+                            Text("Night").tag(DriveAppearance.night)
+                            Text("High Sunlight").tag(DriveAppearance.highSunlight)
+                        }
+                        .pickerStyle(.segmented)
+                    }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Siri commands").font(.title2.bold())
-                    Text("• “Open YouTube Music in Kalpana Drive”")
-                    Text("• “Open the map in Kalpana Drive”")
-                    Text("• “Search for India Gate in Kalpana Drive”")
-                    Text("Siri is a system overlay. Apps cannot programmatically press or embed Siri, so activate it by voice or with the iPad’s top button.")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: 720, alignment: .leading)
+                    // Map Style
+                    settingsGroup(title: "Map Style", icon: "map") {
+                        Picker("Map Style", selection: $model.mapStyle) {
+                            ForEach(DriveMapStyle.allCases) { style in
+                                Label(style.rawValue, systemImage: style.icon).tag(style)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
 
-                Button("Open System Health") {
-                    model.openDiagnostics()
+                    // Route Intelligence
+                    settingsGroup(title: "Route Intelligence", icon: "road.lanes") {
+                        Toggle("Avoid Toll Roads", isOn: Binding(
+                            get: { model.avoidTolls },
+                            set: { model.setAvoidTolls($0) }
+                        ))
+                        Toggle("Avoid Highways", isOn: Binding(
+                            get: { model.avoidHighways },
+                            set: { model.setAvoidHighways($0) }
+                        ))
+                        if !model.roadPreferences.isEmpty {
+                            Divider()
+                            Text("Road Preferences").font(.subheadline.bold())
+                            ForEach(model.roadPreferences, id: \.roadName) { pref in
+                                HStack {
+                                    Image(systemName: pref.preferenceType == .avoid ? "minus.circle.fill" : "checkmark.circle.fill")
+                                        .foregroundStyle(pref.preferenceType == .avoid ? .red : .green)
+                                    Text(pref.roadName)
+                                    Spacer()
+                                    Button(action: { model.deleteRoadPreference(pref.roadName) }) {
+                                        Image(systemName: "trash").foregroundStyle(.red)
+                                    }.buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        Divider()
+                        HStack(spacing: 8) {
+                            TextField("Road name to avoid", text: $newAvoidRoad)
+                                .textFieldStyle(.roundedBorder)
+                            Button("Avoid") {
+                                let name = newAvoidRoad.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !name.isEmpty else { return }
+                                model.avoidRoad(name)
+                                newAvoidRoad = ""
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(newAvoidRoad.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+
+                    // Vehicle Profile
+                    settingsGroup(title: "Vehicle Profile — Maruti Ignis", icon: "fuelpump.fill") {
+                        Picker("Fuel Type", selection: Binding(
+                            get: { model.ignisFuelType },
+                            set: { model.setIgnisFuelType($0) }
+                        )) {
+                            ForEach(RouteIntelligenceService.IgnisFuelType.allCases) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        Text("Fuel type is used for range estimation and CNG station proximity warnings.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+
+                    // Siri
+                    settingsGroup(title: "Siri Commands", icon: "waveform.circle") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("• "Open YouTube Music in Kalpana Drive"")
+                            Text("• "Open the map in Kalpana Drive"")
+                            Text("• "Search for India Gate in Kalpana Drive"")
+                            Text("Activate Siri by voice or the iPad's top button. Siri appears as a system overlay.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Button("Open System Health") { model.openDiagnostics() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .padding(.bottom, 18)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(model.drivingState.restrictsInteraction)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private func settingsGroup<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: icon).font(.headline).foregroundStyle(.secondary)
+            content()
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+
+enum DriveMapStyle: String, CaseIterable, Identifiable {
+    case standard = "Standard"
+    case satellite = "Satellite"
+    case hybrid = "Hybrid"
+    var id: Self { self }
+    var icon: String {
+        switch self {
+        case .standard: return "map"
+        case .satellite: return "globe.americas.fill"
+        case .hybrid: return "map.fill"
         }
     }
 }
