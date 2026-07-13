@@ -23,10 +23,23 @@ struct DashboardView: View {
                     model: model,
                     palette: palette,
                     openSiriHelp: { showSiriHelp = true },
-                    openAskDrive: { showAskDrive = true }
+                    openAskDrive: { model.voiceAssistant.toggleListening() }
                 )
             }
             .padding(20)
+
+            // Voice Assistant Overlay
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    VoiceAssistantOverlay(coordinator: model.voiceAssistant, onKeyboardTap: {
+                        model.voiceAssistant.cancelListening()
+                        showAskDrive = true
+                    })
+                    .padding(24)
+                }
+            }
         }
         .foregroundStyle(palette.foreground)
         .sheet(isPresented: $model.isDiagnosticsPresented) {
@@ -285,20 +298,7 @@ private struct IndependentMusicSummary: View {
     @ObservedObject var model: DashboardViewModel
 
     var body: some View {
-        DriveCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("IPAD MUSIC", systemImage: "play.rectangle.fill").font(.headline)
-                Text("YouTube Music")
-                    .font(.title2.bold())
-                Text("Search and play directly on this iPad from the Music section.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Button("Open Music") {
-                    model.selectSection(.music)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
+        MiniPlayerView(model: model, browser: model.youtubeMusicBrowser)
     }
 }
 

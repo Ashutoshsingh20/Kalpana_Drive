@@ -31,11 +31,9 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var appearance: DriveAppearance = .night
     @Published var controlHand: ControlHand = .left
     @Published private(set) var selectedSection: DashboardSection = .home
-    @Published var voiceMessage = "Tap to speak"
     @Published var destinationQuery = "" {
         didSet { searchCompleter.updateQuery(destinationQuery, coordinate: locationService.coordinate) }
     }
-    @Published var isVoiceActive = false
     @Published var isDiagnosticsPresented = false
 
     // Map state
@@ -84,7 +82,8 @@ final class DashboardViewModel: ObservableObject {
     private let audioService = LiveAudioRouteService()
     private let connectivityService = ConnectivityService()
     private let navigationService = MapKitNavigationService()
-    private let speechService = LiveSpeechService()
+    let youtubeMusicBrowser = YouTubeMusicBrowserController.shared
+    let voiceAssistant: VoiceAssistantCoordinator
     private let contactService = NativeContactService()
     private let navigationEngine = NavigationEngine()
     private let tripRecorder = TripRecorder()
@@ -146,6 +145,7 @@ final class DashboardViewModel: ObservableObject {
     }
 
     init() {
+        self.voiceAssistant = VoiceAssistantCoordinator(browser: youtubeMusicBrowser)
         UIDevice.current.isBatteryMonitoringEnabled = true
         locationService.start()
         bindLiveServices()
@@ -153,6 +153,7 @@ final class DashboardViewModel: ObservableObject {
         startClock()
         Task { await navigationEngine.restoreActiveRoute(currentLocation: nil) }
         Task { await contactService.fetchContacts() }
+        self.voiceAssistant.setViewModel(self)
     }
 
     deinit {
@@ -204,27 +205,7 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func activateVoice() {
-        guard authorize(.useVoice, source: .touch) else { return }
-        if speechService.isListening {
-            speechService.stop()
-            isVoiceActive = false
-            voiceMessage = "Tap to speak"
-            return
-        }
-
-        isVoiceActive = true
-        voiceMessage = "Listening"
-        speechService.start { [weak self] transcript in
-            guard let self else { return }
-            self.isVoiceActive = false
-            self.handleVoiceTranscript(transcript)
-        }
-
-        if let error = speechService.lastError {
-            isVoiceActive = false
-            voiceMessage = error
-            errorMessage = error
-        }
+        voiceAssistant.toggleListening()
     }
 
     func clearError() {
@@ -505,74 +486,7 @@ final class DashboardViewModel: ObservableObject {
         return true
     }
 
-    private func handleVoiceTranscript(_ transcript: String) {
-        let command = transcript.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let response: String
 
-        switch command {
-        case "play music", "music chalao":
-            guard authorize(.controlMedia, source: .voice) else { return }
-            if iphoneConnected {
-                iphoneBridge.sendMediaCommand(.play)
-                response = "Playing Apple Music on the connected iPhone."
-            } else {
-                mediaService.execute(.play)
-                response = "Playing the current iPad Apple Music queue."
-            }
-        case "pause music", "music pause karo":
-            guard authorize(.controlMedia, source: .voice) else { return }
-            if iphoneConnected {
-                iphoneBridge.sendMediaCommand(.pause)
-                response = "Pausing Apple Music on the connected iPhone."
-            } else {
-                mediaService.execute(.pause)
-                response = "Music paused on the iPad."
-            }
-        case "next song", "next track", "agla gana":
-            guard authorize(.controlMedia, source: .voice) else { return }
-            if iphoneConnected {
-                iphoneBridge.sendMediaCommand(.next)
-                response = "Skipping the iPhone Apple Music track."
-            } else {
-                mediaService.execute(.next)
-                response = "Skipping the iPad Apple Music track."
-            }
-        case "previous song", "previous track", "pichla gana":
-            guard authorize(.controlMedia, source: .voice) else { return }
-            if iphoneConnected {
-                iphoneBridge.sendMediaCommand(.previous)
-                response = "Returning to the previous iPhone Apple Music track."
-            } else {
-                mediaService.execute(.previous)
-                response = "Returning to the previous iPad Apple Music track."
-            }
-        case "what is my eta", "eta kya hai":
-            if let route = activeRoute {
-                response = "Your estimated arrival is \(route.expectedArrival.formatted(date: .omitted, time: .shortened))."
-            } else {
-                response = "There is no active route."
-            }
-        case "navigate home", "take me home", "ghar chalo":
-            response = "Home is not configured. Add a real home address before using this command."
-        default:
-            if command.hasPrefix("call ") {
-                let name = String(command.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
-                let matches = iphoneBridge.contacts.filter { $0.displayName.localizedCaseInsensitiveContains(name) }
-                if let contact = matches.first, let number = contact.phoneNumbers.first {
-                    call(number: number)
-                    response = "Opening the system call interface for \(contact.displayName)."
-                } else {
-                    response = "I could not find that person in the contacts shared by your iPhone."
-                }
-            } else {
-                response = "That command is not supported yet."
-            }
-        }
-
-        voiceMessage = response
-        speechService.speak(response)
-        refreshLiveState()
-    }
 
     private func bindLiveServices() {
         Publishers.MergeMany([
@@ -581,7 +495,7 @@ final class DashboardViewModel: ObservableObject {
             audioService.objectWillChange.eraseToAnyPublisher(),
             connectivityService.objectWillChange.eraseToAnyPublisher(),
             navigationService.objectWillChange.eraseToAnyPublisher(),
-            speechService.objectWillChange.eraseToAnyPublisher(),
+            voiceAssistant.objectWillChange.eraseToAnyPublisher(),
             iphoneBridge.objectWillChange.eraseToAnyPublisher(),
             contactService.objectWillChange.eraseToAnyPublisher(),
             navigationEngine.objectWillChange.eraseToAnyPublisher(),
@@ -694,7 +608,7 @@ final class DashboardViewModel: ObservableObject {
 
         thermalStatus = thermalDescription(ProcessInfo.processInfo.thermalState)
 
-        errorMessage = locationService.lastError ?? speechService.lastError ?? navigationService.lastError ?? iphoneBridge.lastError
+        errorMessage = locationService.lastError ?? navigationService.lastError ?? iphoneBridge.lastError
 
         drivingState = stateMachine.update(
             DrivingContext(

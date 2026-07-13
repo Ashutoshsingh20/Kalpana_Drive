@@ -10,18 +10,27 @@
 		06C25EBFEDA9B7703C61B051 /* RouteIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60E28731ADAF4FAF5C571FFA /* RouteIntelligenceService.swift */; };
 		14BF7C1A2CD4A7EE74EA2955 /* RecoveryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25A35D99807A37B7832025 /* RecoveryStore.swift */; };
 		1FF6D3B3066AC7022717D8A3 /* iPhoneCompanionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A30A3772686F68F1192989A /* iPhoneCompanionBridge.swift */; };
+		236C24F39C6916AA1629ABB0 /* AssistantConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CBD9E15548392663E3F7AA /* AssistantConversationStore.swift */; };
+		257CB8E9F236D4306E3C3F2C /* VoiceAndMusicPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB0D0F4D2D27B7F44FFD0E6 /* VoiceAndMusicPersistenceTests.swift */; };
 		2D776848B36D5D5D6BA5F581 /* DrivingStateAndSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */; };
+		33B79A2C7AE752BD40BE32F6 /* AssistantToolExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52D1A5BA618850A45032F381 /* AssistantToolExecutor.swift */; };
 		38376A274F8B2D893D3ECB31 /* JSONContactsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D695233BBE0BF0F687FDEDA8 /* JSONContactsRepository.swift */; };
 		3D30C7D9380C52DDA0AC3AEF /* TripRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB8352B8E41F96E24B787A4 /* TripRecorder.swift */; };
+		3E4DA4EA104B38D8D586DAEF /* VoiceActivityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C0313272B5C9930E3BCFEE /* VoiceActivityDetector.swift */; };
 		401E1311528A0D87CA53CDBC /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */; };
+		4ABE482368B1AABEEAC56A3B /* SpeechRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C4A5218F61E0B1586630FB /* SpeechRecognitionService.swift */; };
 		4C720372AA5E1C9AF1992EC0 /* NavigationRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = A151CEC2EEDD38B34F9D23C7 /* NavigationRepositories.swift */; };
+		4C828B6FD7CF0929E365D0AD /* MusicSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E92A99F8A3CFAA6A56C1415 /* MusicSessionCoordinator.swift */; };
 		51EB8792BA1D95FAF409CD42 /* NavigationProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5332330C9C47A25DE45C10C /* NavigationProtocols.swift */; };
 		595516A0A19B9A38A9A39769 /* SiriDriveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F92CD2C7EC77EC8A6009C4B /* SiriDriveIntents.swift */; };
 		5AA0497002DF6F0DF6F39EAF /* KalpanaDriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */; };
 		5B44DB746F7651E717247793 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5514ED2950119BD9675BA108 /* Models.swift */; };
 		5E8AFABA92AC55F4D0433AC8 /* AskDriveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */; };
 		68717CF4A0A082A09A9AED5B /* NativeContactService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FBD04874B63EE8E0BBD053 /* NativeContactService.swift */; };
+		69A7DDFEFE744942724821DF /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D4314D4CEAB487570E5CA2 /* KeychainHelper.swift */; };
+		6B595092E322FD42DFF3E914 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEB26CD9A225DE407B2F0A60 /* MiniPlayerView.swift */; };
 		6E2FB88DFE3E401DFE690581 /* LiveServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B225DA98195D08E7C9CA3E /* LiveServices.swift */; };
+		724B8B9038EAF23A7384477D /* VoiceAssistantOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5BC83E1D99A0E17E0E72FF9 /* VoiceAssistantOverlay.swift */; };
 		75F2A43F67F7C9E6D6576AEA /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */; };
 		7CA16662E393DB62D5351312 /* AICoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */; };
 		82961589CD7A461E0D72FAF9 /* DrivingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB7B7964375412D18A39398 /* DrivingState.swift */; };
@@ -36,10 +45,13 @@
 		A3EAA4DB1FC22829DE64F1AD /* KalpanaDriveCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A9DB5948416379131463ABC9 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */; };
 		B2C9DF818EE57F0EA0DA204B /* KalpanaDriveCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; };
+		B9B5D3F441485720CEB211A6 /* AssistantSpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50936A88166A4997D3CCB359 /* AssistantSpeechService.swift */; };
+		C7FA0BAC4C449C3EC251E4A1 /* VoiceAssistantCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840A92396987915CE5C813F5 /* VoiceAssistantCoordinator.swift */; };
 		C87F935A1FC081501BC8A53E /* DriveTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98CDFA29656953DA9F48176B /* DriveTheme.swift */; };
 		CA567AB3CC51C09238409DF8 /* KalpanaDriveCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; };
 		CB1B68B963173BC51C6CFADD /* SafetyPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */; };
 		DEFECEB175E5CEE78D03B017 /* KalpanaDriveCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E8047B35C0EF9622B6C6C8AD /* MicrophonePermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29C052880BCDEF968237D85 /* MicrophonePermissionService.swift */; };
 		F6C87C4905120B4EEA592C03 /* SearchCompleterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0606ACC1C3AEF4B948AD5FE7 /* SearchCompleterService.swift */; };
 		F82F630462458120BC10A3FF /* NavigationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D37CC034A95718F53F9D921A /* NavigationModels.swift */; };
 /* End PBXBuildFile section */
@@ -89,22 +101,31 @@
 /* Begin PBXFileReference section */
 		0606ACC1C3AEF4B948AD5FE7 /* SearchCompleterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchCompleterService.swift; sourceTree = "<group>"; };
 		0755787A11E9A0E2543E3092 /* ContactModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactModels.swift; sourceTree = "<group>"; };
+		1E92A99F8A3CFAA6A56C1415 /* MusicSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSessionCoordinator.swift; sourceTree = "<group>"; };
 		1F92CD2C7EC77EC8A6009C4B /* SiriDriveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriDriveIntents.swift; sourceTree = "<group>"; };
 		2438D14541F66C5B68444F94 /* Protocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protocols.swift; sourceTree = "<group>"; };
 		2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		34CBD9E15548392663E3F7AA /* AssistantConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantConversationStore.swift; sourceTree = "<group>"; };
 		3BCDA14FB539FB63B053673D /* KalpanaDriveApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KalpanaDriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		40DC780227659CB244138567 /* ContactsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsServiceTests.swift; sourceTree = "<group>"; };
 		4CB8352B8E41F96E24B787A4 /* TripRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripRecorder.swift; sourceTree = "<group>"; };
 		4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskDriveView.swift; sourceTree = "<group>"; };
+		50936A88166A4997D3CCB359 /* AssistantSpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSpeechService.swift; sourceTree = "<group>"; };
+		52D1A5BA618850A45032F381 /* AssistantToolExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantToolExecutor.swift; sourceTree = "<group>"; };
 		5514ED2950119BD9675BA108 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		59FBD04874B63EE8E0BBD053 /* NativeContactService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeContactService.swift; sourceTree = "<group>"; };
 		5C898C17A0382466EBD88654 /* KalpanaDriveCoreTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = KalpanaDriveCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		60E28731ADAF4FAF5C571FFA /* RouteIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteIntelligenceService.swift; sourceTree = "<group>"; };
 		685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyPolicy.swift; sourceTree = "<group>"; };
 		6965D4A0436B9693F54CF7DF /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationEngine.swift; sourceTree = "<group>"; };
+		69D4314D4CEAB487570E5CA2 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		7AB0D0F4D2D27B7F44FFD0E6 /* VoiceAndMusicPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAndMusicPersistenceTests.swift; sourceTree = "<group>"; };
 		7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICoordinator.swift; sourceTree = "<group>"; };
+		81C0313272B5C9930E3BCFEE /* VoiceActivityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceActivityDetector.swift; sourceTree = "<group>"; };
+		840A92396987915CE5C813F5 /* VoiceAssistantCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantCoordinator.swift; sourceTree = "<group>"; };
 		93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingStateAndSafetyTests.swift; sourceTree = "<group>"; };
 		98CDFA29656953DA9F48176B /* DriveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveTheme.swift; sourceTree = "<group>"; };
+		99C4A5218F61E0B1586630FB /* SpeechRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionService.swift; sourceTree = "<group>"; };
 		9A30A3772686F68F1192989A /* iPhoneCompanionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneCompanionBridge.swift; sourceTree = "<group>"; };
 		A151CEC2EEDD38B34F9D23C7 /* NavigationRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationRepositories.swift; sourceTree = "<group>"; };
 		A3B225DA98195D08E7C9CA3E /* LiveServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveServices.swift; sourceTree = "<group>"; };
@@ -112,13 +133,16 @@
 		AC52A602B5DB7C7D13CAF080 /* YouTubeMusicView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeMusicView.swift; sourceTree = "<group>"; };
 		B196A1DEE8816DB97464482F /* SavedPlacesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedPlacesService.swift; sourceTree = "<group>"; };
 		C1186BCE40F6D2AC31EA68A7 /* ParkingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingService.swift; sourceTree = "<group>"; };
+		C29C052880BCDEF968237D85 /* MicrophonePermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophonePermissionService.swift; sourceTree = "<group>"; };
 		C5332330C9C47A25DE45C10C /* NavigationProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationProtocols.swift; sourceTree = "<group>"; };
+		C5BC83E1D99A0E17E0E72FF9 /* VoiceAssistantOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantOverlay.swift; sourceTree = "<group>"; };
 		CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		D37CC034A95718F53F9D921A /* NavigationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationModels.swift; sourceTree = "<group>"; };
 		D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KalpanaDriveApp.swift; sourceTree = "<group>"; };
 		D695233BBE0BF0F687FDEDA8 /* JSONContactsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONContactsRepository.swift; sourceTree = "<group>"; };
 		E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		EC8503F6A7F1EA44E307CA42 /* KalpanaDriveCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KalpanaDriveCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEB26CD9A225DE407B2F0A60 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		FB25A35D99807A37B7832025 /* RecoveryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryStore.swift; sourceTree = "<group>"; };
 		FEB7B7964375412D18A39398 /* DrivingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -219,12 +243,19 @@
 			children = (
 				7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */,
 				4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */,
+				34CBD9E15548392663E3F7AA /* AssistantConversationStore.swift */,
+				50936A88166A4997D3CCB359 /* AssistantSpeechService.swift */,
+				52D1A5BA618850A45032F381 /* AssistantToolExecutor.swift */,
 				E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */,
 				2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */,
 				CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */,
 				9A30A3772686F68F1192989A /* iPhoneCompanionBridge.swift */,
 				D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */,
+				69D4314D4CEAB487570E5CA2 /* KeychainHelper.swift */,
 				A3B225DA98195D08E7C9CA3E /* LiveServices.swift */,
+				C29C052880BCDEF968237D85 /* MicrophonePermissionService.swift */,
+				EEB26CD9A225DE407B2F0A60 /* MiniPlayerView.swift */,
+				1E92A99F8A3CFAA6A56C1415 /* MusicSessionCoordinator.swift */,
 				59FBD04874B63EE8E0BBD053 /* NativeContactService.swift */,
 				6965D4A0436B9693F54CF7DF /* NavigationEngine.swift */,
 				C1186BCE40F6D2AC31EA68A7 /* ParkingService.swift */,
@@ -232,7 +263,11 @@
 				B196A1DEE8816DB97464482F /* SavedPlacesService.swift */,
 				0606ACC1C3AEF4B948AD5FE7 /* SearchCompleterService.swift */,
 				1F92CD2C7EC77EC8A6009C4B /* SiriDriveIntents.swift */,
+				99C4A5218F61E0B1586630FB /* SpeechRecognitionService.swift */,
 				4CB8352B8E41F96E24B787A4 /* TripRecorder.swift */,
+				81C0313272B5C9930E3BCFEE /* VoiceActivityDetector.swift */,
+				840A92396987915CE5C813F5 /* VoiceAssistantCoordinator.swift */,
+				C5BC83E1D99A0E17E0E72FF9 /* VoiceAssistantOverlay.swift */,
 				AC52A602B5DB7C7D13CAF080 /* YouTubeMusicView.swift */,
 			);
 			path = KalpanaDriveApp;
@@ -243,6 +278,7 @@
 			children = (
 				40DC780227659CB244138567 /* ContactsServiceTests.swift */,
 				93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */,
+				7AB0D0F4D2D27B7F44FFD0E6 /* VoiceAndMusicPersistenceTests.swift */,
 			);
 			path = KalpanaDriveCoreXCTests;
 			sourceTree = "<group>";
@@ -358,11 +394,18 @@
 			files = (
 				7CA16662E393DB62D5351312 /* AICoordinator.swift in Sources */,
 				5E8AFABA92AC55F4D0433AC8 /* AskDriveView.swift in Sources */,
+				236C24F39C6916AA1629ABB0 /* AssistantConversationStore.swift in Sources */,
+				B9B5D3F441485720CEB211A6 /* AssistantSpeechService.swift in Sources */,
+				33B79A2C7AE752BD40BE32F6 /* AssistantToolExecutor.swift in Sources */,
 				401E1311528A0D87CA53CDBC /* DashboardView.swift in Sources */,
 				75F2A43F67F7C9E6D6576AEA /* DashboardViewModel.swift in Sources */,
 				A9DB5948416379131463ABC9 /* DiagnosticsView.swift in Sources */,
 				5AA0497002DF6F0DF6F39EAF /* KalpanaDriveApp.swift in Sources */,
+				69A7DDFEFE744942724821DF /* KeychainHelper.swift in Sources */,
 				6E2FB88DFE3E401DFE690581 /* LiveServices.swift in Sources */,
+				E8047B35C0EF9622B6C6C8AD /* MicrophonePermissionService.swift in Sources */,
+				6B595092E322FD42DFF3E914 /* MiniPlayerView.swift in Sources */,
+				4C828B6FD7CF0929E365D0AD /* MusicSessionCoordinator.swift in Sources */,
 				68717CF4A0A082A09A9AED5B /* NativeContactService.swift in Sources */,
 				82F51D4F1EAFA48D34C42674 /* NavigationEngine.swift in Sources */,
 				85EC990472FC6CE3D56C2A3E /* ParkingService.swift in Sources */,
@@ -370,7 +413,11 @@
 				9F95F1D5D789F25334E032D8 /* SavedPlacesService.swift in Sources */,
 				F6C87C4905120B4EEA592C03 /* SearchCompleterService.swift in Sources */,
 				595516A0A19B9A38A9A39769 /* SiriDriveIntents.swift in Sources */,
+				4ABE482368B1AABEEAC56A3B /* SpeechRecognitionService.swift in Sources */,
 				3D30C7D9380C52DDA0AC3AEF /* TripRecorder.swift in Sources */,
+				3E4DA4EA104B38D8D586DAEF /* VoiceActivityDetector.swift in Sources */,
+				C7FA0BAC4C449C3EC251E4A1 /* VoiceAssistantCoordinator.swift in Sources */,
+				724B8B9038EAF23A7384477D /* VoiceAssistantOverlay.swift in Sources */,
 				881115C3DDC40FCDA8ACF0E3 /* YouTubeMusicView.swift in Sources */,
 				1FF6D3B3066AC7022717D8A3 /* iPhoneCompanionBridge.swift in Sources */,
 			);
@@ -401,6 +448,7 @@
 			files = (
 				96904B388E07331F8E0AE033 /* ContactsServiceTests.swift in Sources */,
 				2D776848B36D5D5D6BA5F581 /* DrivingStateAndSafetyTests.swift in Sources */,
+				257CB8E9F236D4306E3C3F2C /* VoiceAndMusicPersistenceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

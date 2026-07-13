@@ -8,7 +8,9 @@ final class AICoordinator: ObservableObject {
     @Published var isProcessing = false
     @Published var pendingAction: PendingAction?
 
-    private let apiKey = "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"
+    private var apiKey: String {
+        KeychainHelper.shared.loadApiKey() ?? ""
+    }
     private let endpoint = "https://integrate.api.nvidia.com/v1/chat/completions"
     private let modelName = "meta/llama-3.1-8b-instruct"
 

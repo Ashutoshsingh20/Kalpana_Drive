@@ -283,7 +283,7 @@ private final class MusicWebViewResidence {
 }
 
 @MainActor
-final class YouTubeMusicBrowserController: NSObject, ObservableObject {
+final class YouTubeMusicBrowserController: NSObject, ObservableObject, WKScriptMessageHandler {
     static let shared = YouTubeMusicBrowserController()
 
     @Published private(set) var isLoading = false
@@ -292,6 +292,12 @@ final class YouTubeMusicBrowserController: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var authenticationBlocked = false
     @Published private(set) var isUsingYouTubeFallback = false
+
+    @Published var isPlaying = false
+    @Published var trackTitle = ""
+    @Published var trackArtist = ""
+    @Published var trackArtwork = ""
+    var isPlayerAvailable: Bool { !trackTitle.isEmpty }
 
     let webView: WKWebView
 
@@ -315,8 +321,50 @@ final class YouTubeMusicBrowserController: NSObject, ObservableObject {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
+        let scriptContent = """
+        (function() {
+            function checkState() {
+                var playButton = document.querySelector('ytmusic-play-button-renderer');
+                var titleEl = document.querySelector('yt-formatted-string.title.style-scope.ytmusic-player-bar');
+                var artistEl = document.querySelector('span.byline.style-scope.ytmusic-player-bar');
+                var artworkEl = document.querySelector('img.image.style-scope.ytmusic-player-bar');
+                var isPlaying = false;
+                var title = "";
+                var artist = "";
+                var artwork = "";
+                if (playButton) {
+                    var label = playButton.getAttribute('aria-label') || '';
+                    var state = playButton.getAttribute('state') || '';
+                    var titleAttr = playButton.getAttribute('title') || '';
+                    isPlaying = label.toLowerCase().indexOf('pause') !== -1 || state === 'playing' || titleAttr.toLowerCase().indexOf('pause') !== -1;
+                }
+                if (titleEl) {
+                    title = titleEl.innerText;
+                }
+                if (artistEl) {
+                    artist = artistEl.innerText;
+                }
+                if (artworkEl) {
+                    artwork = artworkEl.src;
+                }
+                var msg = {
+                    isPlaying: isPlaying,
+                    title: title,
+                    artist: artist,
+                    artwork: artwork
+                };
+                window.webkit.messageHandlers.mediaState.postMessage(msg);
+            }
+            setInterval(checkState, 1000);
+        })();
+        """
+        let userScript = WKUserScript(source: scriptContent, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        configuration.userContentController.addUserScript(userScript)
+
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+
+        webView.configuration.userContentController.add(self, name: "mediaState")
 
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -413,6 +461,39 @@ final class YouTubeMusicBrowserController: NSObject, ObservableObject {
                 }
             }
         }
+    }
+
+    nonisolated func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "mediaState",
+              let dict = message.body as? [String: Any] else { return }
+        
+        let isPlaying = dict["isPlaying"] as? Bool ?? false
+        let title = dict["title"] as? String ?? ""
+        let artist = dict["artist"] as? String ?? ""
+        let artwork = dict["artwork"] as? String ?? ""
+        
+        Task { @MainActor in
+            self.isPlaying = isPlaying
+            self.trackTitle = title
+            self.trackArtist = artist
+            self.trackArtwork = artwork
+        }
+    }
+
+    func play() {
+        webView.evaluateJavaScript("document.querySelector('ytmusic-play-button-renderer').click()")
+    }
+
+    func pause() {
+        webView.evaluateJavaScript("document.querySelector('ytmusic-play-button-renderer').click()")
+    }
+
+    func next() {
+        webView.evaluateJavaScript("document.querySelector('.next-button').click()")
+    }
+
+    func previous() {
+        webView.evaluateJavaScript("document.querySelector('.previous-button').click()")
     }
 }
 
