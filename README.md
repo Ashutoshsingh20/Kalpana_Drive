@@ -1,49 +1,69 @@
 # Kalpana Drive
 
-Kalpana Drive is an independent driving-focused system for an iPad mounted in a Maruti Suzuki Ignis, with an iPhone companion. It uses public Apple APIs and does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
+Kalpana Drive is an independent driving-focused application for an iPad mounted in a Maruti Suzuki Ignis. The iPad can provide navigation, YouTube Music, Siri actions, GPS, audio-route status, battery and thermal monitoring without a connected phone. An iPhone companion remains an optional extension for contacts and supported Apple Music relay.
+
+Kalpana Drive uses public Apple and Google web-platform capabilities. It does **not** implement or emulate Apple CarPlay or Android Auto receiver protocols.
 
 The repository follows one hard rule: **no demo data, mock services, simulated movement, fabricated connection states, or placeholder success are allowed in production.** A capability either uses a real platform service or reports that it is unavailable.
 
-## Implemented iPad capabilities
+## Independent iPad capabilities
 
 - Live MapKit map with the iPad's current location and heading.
-- Real Core Location speed, permission state, freshness filtering, and GPS accuracy.
-- Real network reachability through `NWPathMonitor`.
-- Real iPad Apple Music metadata and transport controls through `MPMusicPlayerController`.
-- Real current audio-output inspection through `AVAudioSession`.
-- Real battery, charging, low-power, and thermal state reporting.
-- Real speech recognition and text-to-speech through Speech and AVFoundation.
+- Core Location speed, permission state, freshness filtering and GPS accuracy.
+- MapKit destination search for places, landmarks, businesses and addresses.
+- Nearby-first destination search with an automatic global retry when no nearby result exists.
+- Destination searching while parked even before a valid GPS fix is available.
+- Driving-route alternatives, route polylines, cancellation and destination-based route recovery.
+- YouTube Music loaded directly inside Kalpana Drive using a persistent `WKWebView` on the iPad.
+- Inline media playback routed through the iPad and its current Bluetooth or speaker output.
+- Siri App Intents and App Shortcuts for opening the dashboard, map and YouTube Music, plus destination search.
+- Siri remains a system overlay, so the Kalpana Drive dashboard stays underneath and returns to the requested screen or task.
+- Network reachability through `NWPathMonitor`.
+- Current audio-output inspection through `AVAudioSession`.
+- Battery, charging, low-power and thermal-state reporting.
 - Driving-state hysteresis and a central action-safety policy.
-- MapKit destination search, alternatives, route polylines, cancellation, and destination-based route recovery.
 - Atomic local recovery storage and deterministic domain checks.
-- Nearby iPhone advertising, explicit connection approval, required Multipeer transport encryption, sequence validation, and replay rejection.
-- iPhone contact display, search, one-tap outgoing-call initiation through the Apple system interface, and remote iPhone Apple Music controls.
 
-## Implemented iPhone companion
+## Siri phrases
+
+After installing and opening the application, use phrases such as:
+
+- “Siri, open the dashboard in Kalpana Drive.”
+- “Siri, open the map in Kalpana Drive.”
+- “Siri, open YouTube Music in Kalpana Drive.”
+- “Siri, search a destination in Kalpana Drive.”
+
+For destination search, Siri asks which place to search for and opens the result flow in Kalpana Drive.
+
+Apps cannot programmatically press the Siri button or embed the full Siri interface. Siri must be activated by voice or the iPad's top button.
+
+## Optional iPhone companion
 
 - Nearby iPad discovery and user-initiated connection.
 - Contacts permission and approved contact snapshot relay.
-- Apple Music permission, metadata relay, and play/pause/previous/next command handling.
+- Apple Music permission, metadata relay and play/pause/previous/next command handling.
 - Optional foreground location sharing.
 - Upcoming calendar-event location relay.
-- Battery, charging, and network-health relay.
+- Battery, charging and network-health relay.
 - Typed versioned messages with monotonically increasing sequence numbers.
 
-## Apple platform limits
+The iPhone companion is not required for the iPad map, YouTube Music or Siri functions.
 
-- Native incoming cellular calls remain in Apple's Phone/Continuity interface. Third-party apps cannot answer, reject, intercept, or reliably inspect those calls through public iOS APIs.
-- Outgoing calls are requested through the iPad system `tel:` interface and require a working cellular or Calls from iPhone/Continuity configuration.
-- The iPhone media bridge controls the iPhone Apple Music system player. It cannot universally inspect or control Spotify, YouTube Music, or arbitrary third-party media sessions.
-- Multipeer transport encryption and per-connection approval are implemented. Persistent cryptographic device identity, signed reconnection, and device-key revocation are still required before the connection should be treated as permanently trusted.
+## Platform limits
+
+- YouTube Music runs through Google's website inside WebKit. Google can change sign-in, playback or embedding behavior, so it must be verified on the physical iPad.
+- Kalpana Drive cannot universally inspect or control arbitrary playback in other third-party applications.
+- Native incoming iPhone cellular calls remain in Apple's Phone/Continuity interface.
+- Siri is integrated using App Intents and App Shortcuts; a third-party app cannot replace or privately invoke the full Siri interface.
 
 ## Repository layout
 
-- `ipad-app/` — Swift iPad application, XcodeGen definition, testable core, and iPhone bridge
-- `iphone-companion/` — SwiftUI iPhone companion source and XcodeGen definition
+- `ipad-app/` — Swift iPad application, XcodeGen definition, testable core, WebKit media surface and Siri App Intents
+- `iphone-companion/` — optional SwiftUI iPhone companion source and XcodeGen definition
 - `shared-protocol/` — protocol specification work
-- `documentation/` — architecture, safety, limitations, and status
+- `documentation/` — architecture, safety, limitations and status
 - `tests/` — test plans and fixtures
-- `scripts/` — project generation, builds, and checks
+- `scripts/` — project generation, builds and checks
 
 ## Generate both Xcode projects
 
@@ -61,7 +81,7 @@ This generates:
 - `ipad-app/KalpanaDrive.xcodeproj`
 - `iphone-companion/KalpanaDrivePhone.xcodeproj`
 
-Select your Apple development team in each project and install both apps on physical devices.
+Select your Apple development team and install the iPad application on a physical iPad. The companion can be installed later when phone integration is required.
 
 ## Build checks
 
@@ -71,6 +91,6 @@ Select your Apple development team in each project and install both apps on phys
 ./scripts/build-iphone.sh
 ```
 
-GitHub Actions has successfully generated and compiled both Apple simulator targets with Xcode 16.4.
+GitHub Actions has generated and compiled both Apple simulator targets with Xcode 16.4 after the independent-iPad changes.
 
-GPS speed, Bluetooth audio routing, microphone recognition, iPhone discovery, contact relay, Apple Music commands, calling handoff, heat, and charging behavior still require physical-device verification.
+Physical-device verification is still required for YouTube Music sign-in and playback, Siri shortcut discovery, MapKit results in India, GPS speed, Bluetooth audio routing, heat and charging behavior.
