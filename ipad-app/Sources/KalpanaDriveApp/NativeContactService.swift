@@ -49,7 +49,8 @@ final class NativeContactService: ObservableObject {
                 CNContactFamilyNameKey as CNKeyDescriptor,
                 CNContactOrganizationNameKey as CNKeyDescriptor,
                 CNContactPhoneNumbersKey as CNKeyDescriptor,
-                CNContactThumbnailImageDataKey as CNKeyDescriptor
+                CNContactThumbnailImageDataKey as CNKeyDescriptor,
+                CNContactFormatter.descriptorForRequiredKeys(for: .fullName)
             ]
             let request = CNContactFetchRequest(keysToFetch: keysToFetch)
             var fetched: [KalpanaContact] = []
