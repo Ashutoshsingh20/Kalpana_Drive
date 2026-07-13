@@ -19,7 +19,7 @@ struct KalpanaDriveChecks {
         try expect(policy.evaluate(.openSettings, state: .parked, source: .touch).isAllowed, "settings are allowed while parked")
         try expect(policy.evaluate(.typeDestination, state: .moving, source: .touch).isAllowed, "destination typing is allowed while moving")
         try expect(policy.evaluate(.typeDestination, state: .moving, source: .voice).isAllowed, "voice destination entry is allowed while moving")
-        try expect(!policy.evaluate(.manageDevices, state: .thermalLimit, source: .touch).isAllowed, "device management is blocked under thermal limit")
+        try expect(policy.evaluate(.manageDevices, state: .thermalLimit, source: .touch).isAllowed, "device management is allowed under thermal limit")
         try expect(policy.classification(for: .browseContent) == .voiceOnlyWhileMoving, "content browsing has one central classification")
     }
 

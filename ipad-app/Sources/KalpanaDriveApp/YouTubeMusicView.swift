@@ -7,12 +7,15 @@ struct YouTubeMusicView: View {
     @StateObject private var browser = YouTubeMusicBrowserController()
     @State private var showHelp = false
 
+    @State private var showSafariFallback = false
+
     var body: some View {
         VStack(spacing: 12) {
             browserToolbar
 
             ZStack {
                 YouTubeMusicWebView(controller: browser)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if browser.isLoading {
                     VStack(spacing: 12) {
@@ -47,6 +50,11 @@ struct YouTubeMusicView: View {
                                 browser.loadStandardYouTubeFallback()
                             }
                             .buttonStyle(.bordered)
+
+                            Button("Safari Fallback") {
+                                showSafariFallback = true
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                     .padding(28)
@@ -54,16 +62,22 @@ struct YouTubeMusicView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.primary.opacity(0.8), lineWidth: 2)
             )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .alert("YouTube Music on iPad", isPresented: $showHelp) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Kalpana Drive requests the desktop YouTube Music website inside a persistent WebKit session. Playback remains on this iPad and can route to the Ignis stereo over Bluetooth. Google sign-in and playback must still be verified on the physical iPad.")
+        }
+        .sheet(isPresented: $showSafariFallback) {
+            SafariView(url: URL(string: "https://music.youtube.com")!)
+                .ignoresSafeArea()
         }
     }
 
@@ -73,6 +87,20 @@ struct YouTubeMusicView: View {
                 .font(.title2.bold())
 
             Spacer()
+
+            Button {
+                showSafariFallback = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "safari")
+                    Text("Secure Sign-in")
+                }
+                .font(.subheadline.bold())
+                .frame(height: 42)
+                .padding(.horizontal, 10)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel("Open Safari Secure Sign-in Fallback")
 
             Button {
                 browser.goBack()
@@ -122,6 +150,18 @@ struct YouTubeMusicView: View {
             .accessibilityLabel("YouTube Music help")
         }
     }
+}
+
+import SafariServices
+
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 private struct YouTubeMusicWebView: UIViewRepresentable {

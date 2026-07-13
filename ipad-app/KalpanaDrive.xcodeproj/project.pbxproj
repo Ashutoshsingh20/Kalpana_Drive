@@ -19,9 +19,11 @@
 		595516A0A19B9A38A9A39769 /* SiriDriveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F92CD2C7EC77EC8A6009C4B /* SiriDriveIntents.swift */; };
 		5AA0497002DF6F0DF6F39EAF /* KalpanaDriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B82C206868954BB9116F2D /* KalpanaDriveApp.swift */; };
 		5B44DB746F7651E717247793 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5514ED2950119BD9675BA108 /* Models.swift */; };
+		5E8AFABA92AC55F4D0433AC8 /* AskDriveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */; };
 		68717CF4A0A082A09A9AED5B /* NativeContactService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FBD04874B63EE8E0BBD053 /* NativeContactService.swift */; };
 		6E2FB88DFE3E401DFE690581 /* LiveServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B225DA98195D08E7C9CA3E /* LiveServices.swift */; };
 		75F2A43F67F7C9E6D6576AEA /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */; };
+		7CA16662E393DB62D5351312 /* AICoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */; };
 		82961589CD7A461E0D72FAF9 /* DrivingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB7B7964375412D18A39398 /* DrivingState.swift */; };
 		82F51D4F1EAFA48D34C42674 /* NavigationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6965D4A0436B9693F54CF7DF /* NavigationEngine.swift */; };
 		85EC990472FC6CE3D56C2A3E /* ParkingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1186BCE40F6D2AC31EA68A7 /* ParkingService.swift */; };
@@ -93,12 +95,14 @@
 		3BCDA14FB539FB63B053673D /* KalpanaDriveApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KalpanaDriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		40DC780227659CB244138567 /* ContactsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsServiceTests.swift; sourceTree = "<group>"; };
 		4CB8352B8E41F96E24B787A4 /* TripRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripRecorder.swift; sourceTree = "<group>"; };
+		4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskDriveView.swift; sourceTree = "<group>"; };
 		5514ED2950119BD9675BA108 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		59FBD04874B63EE8E0BBD053 /* NativeContactService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeContactService.swift; sourceTree = "<group>"; };
 		5C898C17A0382466EBD88654 /* KalpanaDriveCoreTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = KalpanaDriveCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		60E28731ADAF4FAF5C571FFA /* RouteIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteIntelligenceService.swift; sourceTree = "<group>"; };
 		685B8BCAF27BE0EC9B319E7A /* SafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyPolicy.swift; sourceTree = "<group>"; };
 		6965D4A0436B9693F54CF7DF /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationEngine.swift; sourceTree = "<group>"; };
+		7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICoordinator.swift; sourceTree = "<group>"; };
 		93A21C06E9B79E6C166B87DC /* DrivingStateAndSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingStateAndSafetyTests.swift; sourceTree = "<group>"; };
 		98CDFA29656953DA9F48176B /* DriveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveTheme.swift; sourceTree = "<group>"; };
 		9A30A3772686F68F1192989A /* iPhoneCompanionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneCompanionBridge.swift; sourceTree = "<group>"; };
@@ -213,6 +217,8 @@
 		BD189E5821E58AF9AED9BCF7 /* KalpanaDriveApp */ = {
 			isa = PBXGroup;
 			children = (
+				7CD6CA1C446705E5184C4ADD /* AICoordinator.swift */,
+				4E531D6B8E565F3A814B7D1F /* AskDriveView.swift */,
 				E22F29B4E89FE55CD5FB31BD /* DashboardView.swift */,
 				2DECCD31393B589EFE371FC3 /* DashboardViewModel.swift */,
 				CB6745B984191FA676C0B2B6 /* DiagnosticsView.swift */,
@@ -350,6 +356,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7CA16662E393DB62D5351312 /* AICoordinator.swift in Sources */,
+				5E8AFABA92AC55F4D0433AC8 /* AskDriveView.swift in Sources */,
 				401E1311528A0D87CA53CDBC /* DashboardView.swift in Sources */,
 				75F2A43F67F7C9E6D6576AEA /* DashboardViewModel.swift in Sources */,
 				A9DB5948416379131463ABC9 /* DiagnosticsView.swift in Sources */,

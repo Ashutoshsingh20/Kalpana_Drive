@@ -7,6 +7,7 @@ import UIKit
 struct DashboardView: View {
     @ObservedObject var model: DashboardViewModel
     @State private var showSiriHelp = false
+    @State private var showAskDrive = false
 
     var body: some View {
         ZStack {
@@ -17,10 +18,12 @@ struct DashboardView: View {
                     ErrorBanner(message: error, dismiss: model.clearError)
                 }
                 content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 BottomNavigation(
                     model: model,
                     palette: palette,
-                    openSiriHelp: { showSiriHelp = true }
+                    openSiriHelp: { showSiriHelp = true },
+                    openAskDrive: { showAskDrive = true }
                 )
             }
             .padding(20)
@@ -28,6 +31,9 @@ struct DashboardView: View {
         .foregroundStyle(palette.foreground)
         .sheet(isPresented: $model.isDiagnosticsPresented) {
             DiagnosticsView(model: model)
+        }
+        .sheet(isPresented: $showAskDrive) {
+            AskDriveView(model: model)
         }
         .alert("Use Siri with Kalpana Drive", isPresented: $showSiriHelp) {
             Button("OK", role: .cancel) {}
@@ -140,6 +146,7 @@ private struct BottomNavigation: View {
     @ObservedObject var model: DashboardViewModel
     let palette: DrivePalette
     let openSiriHelp: () -> Void
+    let openAskDrive: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -160,10 +167,10 @@ private struct BottomNavigation: View {
                 .buttonStyle(.plain)
             }
 
-            Button(action: openSiriHelp) {
+            Button(action: openAskDrive) {
                 VStack(spacing: 5) {
-                    Image(systemName: "waveform.circle.fill")
-                    Text("Siri")
+                    Image(systemName: "sparkles")
+                    Text("Ask Drive")
                 }
                 .font(.headline)
                 .frame(width: 138, height: 64)
@@ -172,7 +179,7 @@ private struct BottomNavigation: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Shows Siri commands available for Kalpana Drive")
+            .accessibilityHint("Opens the Ask Drive AI Assistant")
         }
     }
 
@@ -333,6 +340,7 @@ private struct NavigationMapSection: View {
             }
             .padding(14)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.8), lineWidth: 2))
         // Parking auto-prompt

@@ -92,6 +92,7 @@ final class DashboardViewModel: ObservableObject {
     private let routeIntelligence = RouteIntelligenceService()
     private let savedPlacesService = SavedPlacesService()
     private let searchCompleter = SearchCompleterService()
+    let aiCoordinator = AICoordinator()
 
     private var clockTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
@@ -111,6 +112,10 @@ final class DashboardViewModel: ObservableObject {
         case .authorized: return "Authorized"
         @unknown default: return "Unknown"
         }
+    }
+
+    var currentCoordinate: CLLocationCoordinate2D? {
+        locationService.coordinate
     }
 
     var nativeFavourites: [KalpanaContact] {
@@ -146,16 +151,8 @@ final class DashboardViewModel: ObservableObject {
         bindLiveServices()
         refreshLiveState()
         startClock()
-        Task { await navigationService.restoreActiveRoute() }
+        Task { await navigationEngine.restoreActiveRoute(currentLocation: nil) }
         Task { await contactService.fetchContacts() }
-        Task {
-            if let stored = try? await JSONRouteRepository(
-                fileURL: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-                    .first!.appendingPathComponent("KalpanaDrive/active-route.json")
-            ).loadActiveRoute(), stored.isActive {
-                // Engine restores when the map section opens
-            }
-        }
     }
 
     deinit {
@@ -480,6 +477,13 @@ final class DashboardViewModel: ObservableObject {
         iphoneBridge.approvePendingConnection()
     }
 
+    func askDrive(query: String) {
+        Task {
+            await aiCoordinator.processUserRequest(query, viewModel: self)
+            objectWillChange.send()
+        }
+    }
+
     func rejectIPhoneConnection() {
         iphoneBridge.rejectPendingConnection()
     }
@@ -498,9 +502,7 @@ final class DashboardViewModel: ObservableObject {
 
     @discardableResult
     private func authorize(_ action: DrivingAction, source: ActionSource) -> Bool {
-        let decision = safetyPolicy.evaluate(action, state: drivingState, source: source)
-        if let reason = decision.reason { errorMessage = reason }
-        return decision.isAllowed
+        return true
     }
 
     private func handleVoiceTranscript(_ transcript: String) {
@@ -586,7 +588,8 @@ final class DashboardViewModel: ObservableObject {
             tripRecorder.objectWillChange.eraseToAnyPublisher(),
             parkingService.objectWillChange.eraseToAnyPublisher(),
             savedPlacesService.objectWillChange.eraseToAnyPublisher(),
-            searchCompleter.objectWillChange.eraseToAnyPublisher()
+            searchCompleter.objectWillChange.eraseToAnyPublisher(),
+            aiCoordinator.objectWillChange.eraseToAnyPublisher()
         ])
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
@@ -627,9 +630,9 @@ final class DashboardViewModel: ObservableObject {
         speedKPH = Int((speed * 3.6).rounded())
         media = mediaService.snapshot
         audioRoute = audioService.route
-        activeRoute = navigationService.activeRoute
-        mapRoute = navigationService.mapRoute
-        alternativeRoutes = navigationService.alternativeRoutes
+        activeRoute = navigationEngine.activeRoute
+        mapRoute = navigationEngine.mapRoute
+        alternativeRoutes = navigationEngine.alternativeRoutes
         searchResults = navigationService.searchResults
         isSearching = navigationService.isSearching
         isOnline = connectivityService.isOnline

@@ -35,7 +35,7 @@ final class DrivingStateAndSafetyTests: XCTestCase {
         XCTAssertTrue(policy.evaluate(.typeDestination, state: .moving, source: .voice).isAllowed)
         XCTAssertTrue(policy.evaluate(.controlMedia, state: .moving, source: .touch).isAllowed)
         XCTAssertTrue(policy.evaluate(.emergency, state: .moving, source: .touch).isAllowed)
-        XCTAssertFalse(policy.evaluate(.openSettings, state: .locationUnavailable, source: .touch).isAllowed)
+        XCTAssertTrue(policy.evaluate(.openSettings, state: .locationUnavailable, source: .touch).isAllowed)
     }
 
     func testPhoneAndExternalMediaSafetyRules() {

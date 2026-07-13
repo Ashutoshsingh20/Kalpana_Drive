@@ -260,6 +260,7 @@ private struct ContactsSection: View {
     private var contactsStatus: String {
         switch service.authorizationStatus {
         case .authorized: "Allowed"
+        case .limited: "Limited"
         case .denied: "Denied"
         case .restricted: "Restricted"
         case .notDetermined: "Not requested"

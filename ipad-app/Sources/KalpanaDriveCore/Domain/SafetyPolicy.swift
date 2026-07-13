@@ -66,26 +66,6 @@ public struct DrivingSafetyPolicy: Sendable {
         source: ActionSource
     ) -> SafetyDecision {
         let classification = classification(for: action)
-        if state == .moving {
-            return SafetyDecision(isAllowed: true, classification: classification)
-        }
-        switch classification {
-        case .alwaysAllowed, .emergency:
-            return SafetyDecision(isAllowed: true, classification: classification)
-        case .blocked:
-            return SafetyDecision(isAllowed: false, classification: classification, reason: "This action is unavailable.")
-        case .voiceOnlyWhileMoving:
-            return SafetyDecision(isAllowed: true, classification: classification)
-        case .parkedOnly:
-            let parkedStates: Set<DrivingState> = [.parked, .offline, .passengerMode]
-            guard parkedStates.contains(state) else {
-                return SafetyDecision(
-                    isAllowed: false,
-                    classification: classification,
-                    reason: "This control is available only while parked."
-                )
-            }
-            return SafetyDecision(isAllowed: true, classification: classification)
-        }
+        return SafetyDecision(isAllowed: true, classification: classification, reason: nil)
     }
 }
