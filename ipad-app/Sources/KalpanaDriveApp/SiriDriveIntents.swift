@@ -35,9 +35,9 @@ enum SiriDriveCommandStore {
 }
 
 struct OpenDriveDashboardIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Drive Dashboard"
-    static var description = IntentDescription("Opens the main Kalpana Drive dashboard.")
-    static var openAppWhenRun = true
+    static let title: LocalizedStringResource = "Open Drive Dashboard"
+    static let description = IntentDescription("Opens the main Kalpana Drive dashboard.")
+    static let openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SiriDriveCommandStore.enqueue(.openDashboard)
@@ -46,9 +46,9 @@ struct OpenDriveDashboardIntent: AppIntent {
 }
 
 struct OpenDriveMapIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Drive Map"
-    static var description = IntentDescription("Opens the map inside Kalpana Drive.")
-    static var openAppWhenRun = true
+    static let title: LocalizedStringResource = "Open Drive Map"
+    static let description = IntentDescription("Opens the map inside Kalpana Drive.")
+    static let openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SiriDriveCommandStore.enqueue(.openMap)
@@ -57,9 +57,9 @@ struct OpenDriveMapIntent: AppIntent {
 }
 
 struct OpenDriveMusicIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open YouTube Music"
-    static var description = IntentDescription("Opens the YouTube Music screen inside Kalpana Drive.")
-    static var openAppWhenRun = true
+    static let title: LocalizedStringResource = "Open YouTube Music"
+    static let description = IntentDescription("Opens the YouTube Music screen inside Kalpana Drive.")
+    static let openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SiriDriveCommandStore.enqueue(.openMusic)
@@ -68,9 +68,9 @@ struct OpenDriveMusicIntent: AppIntent {
 }
 
 struct SearchDriveDestinationIntent: AppIntent {
-    static var title: LocalizedStringResource = "Search Drive Destination"
-    static var description = IntentDescription("Searches for a destination inside Kalpana Drive.")
-    static var openAppWhenRun = true
+    static let title: LocalizedStringResource = "Search Drive Destination"
+    static let description = IntentDescription("Searches for a destination inside Kalpana Drive.")
+    static let openAppWhenRun = true
 
     @Parameter(title: "Destination")
     var destination: String
