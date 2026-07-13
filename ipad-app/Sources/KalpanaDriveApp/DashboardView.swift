@@ -1441,9 +1441,9 @@ private struct SettingsSection: View {
                     // Siri
                     settingsGroup(title: "Siri Commands", icon: "waveform.circle") {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("• "Open YouTube Music in Kalpana Drive"")
-                            Text("• "Open the map in Kalpana Drive"")
-                            Text("• "Search for India Gate in Kalpana Drive"")
+                            Text("• \"Open YouTube Music in Kalpana Drive\"")
+                            Text("• \"Open the map in Kalpana Drive\"")
+                            Text("• \"Search for India Gate in Kalpana Drive\"")
                             Text("Activate Siri by voice or the iPad's top button. Siri appears as a system overlay.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }

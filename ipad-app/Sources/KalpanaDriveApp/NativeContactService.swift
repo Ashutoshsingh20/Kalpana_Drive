@@ -38,9 +38,12 @@ final class NativeContactService: ObservableObject {
             return
         }
 
-        do {
-            let metadata = await metadataRepository.loadMetadata()
-            let keysToFetch = [
+        let metadata = await metadataRepository.loadMetadata()
+
+        // ALL CNContact work (fetch + map) stays inside the detached task
+        // so no CNContact (non-Sendable) object ever crosses an actor boundary.
+        let result: Result<[KalpanaContact], Error> = await Task.detached(priority: .userInitiated) {
+            let keysToFetch: [CNKeyDescriptor] = [
                 CNContactIdentifierKey as CNKeyDescriptor,
                 CNContactGivenNameKey as CNKeyDescriptor,
                 CNContactFamilyNameKey as CNKeyDescriptor,
@@ -48,51 +51,50 @@ final class NativeContactService: ObservableObject {
                 CNContactPhoneNumbersKey as CNKeyDescriptor,
                 CNContactThumbnailImageDataKey as CNKeyDescriptor
             ]
-
             let request = CNContactFetchRequest(keysToFetch: keysToFetch)
             var fetched: [KalpanaContact] = []
+            do {
+                try CNContactStore().enumerateContacts(with: request) { contact, _ in
+                    let displayName = CNContactFormatter.string(from: contact, style: .fullName)
+                        ?? (contact.organizationName.isEmpty ? "Unnamed Contact" : contact.organizationName)
 
-            let contactsList = try await Task.detached(priority: .userInitiated) {
-                var list: [CNContact] = []
-                let store = CNContactStore()
-                try store.enumerateContacts(with: request) { contact, _ in
-                    list.append(contact)
+                    let phoneNumbers = contact.phoneNumbers.map { labelNum -> LabeledPhoneNumber in
+                        let label = labelNum.label.map {
+                            CNLabeledValue<NSString>.localizedString(forLabel: $0)
+                        } ?? "Other"
+                        return LabeledPhoneNumber(label: label, number: labelNum.value.stringValue)
+                    }
+
+                    guard !phoneNumbers.isEmpty else { return }
+
+                    let id = contact.identifier
+                    let meta = metadata[id] ?? ContactMetadata()
+
+                    fetched.append(KalpanaContact(
+                        id: id,
+                        displayName: displayName,
+                        givenName: contact.givenName,
+                        familyName: contact.familyName,
+                        organisation: contact.organizationName,
+                        phoneNumbers: phoneNumbers,
+                        thumbnailImageData: contact.thumbnailImageData,
+                        isFavourite: meta.isFavourite,
+                        lastCalled: meta.lastCalled
+                    ))
                 }
-                return list
-            }.value
-
-            for contact in contactsList {
-                let displayName = CNContactFormatter.string(from: contact, style: .fullName) ?? 
-                    (contact.organizationName.isEmpty ? "Unnamed Contact" : contact.organizationName)
-
-                let phoneNumbers = contact.phoneNumbers.map { labelNum in
-                    let label = labelNum.label.map { CNLabeledValue<NSString>.localizedString(forLabel: $0) } ?? "Other"
-                    let number = labelNum.value.stringValue
-                    return LabeledPhoneNumber(label: label, number: number)
-                }
-
-                guard !phoneNumbers.isEmpty else { continue }
-
-                let id = contact.identifier
-                let meta = metadata[id] ?? ContactMetadata()
-
-                let kContact = KalpanaContact(
-                    id: id,
-                    displayName: displayName,
-                    givenName: contact.givenName,
-                    familyName: contact.familyName,
-                    organisation: contact.organizationName,
-                    phoneNumbers: phoneNumbers,
-                    thumbnailImageData: contact.thumbnailImageData,
-                    isFavourite: meta.isFavourite,
-                    lastCalled: meta.lastCalled
-                )
-                fetched.append(kContact)
+                return .success(fetched.sorted {
+                    $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+                })
+            } catch {
+                return .failure(error)
             }
+        }.value
 
-            self.contacts = fetched.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        switch result {
+        case .success(let list):
+            self.contacts = list
             self.lastError = nil
-        } catch {
+        case .failure(let error):
             self.lastError = "Failed to load contacts: \(error.localizedDescription)"
         }
     }
