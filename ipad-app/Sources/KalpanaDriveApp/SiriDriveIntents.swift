@@ -75,10 +75,6 @@ struct SearchDriveDestinationIntent: AppIntent {
     @Parameter(title: "Destination")
     var destination: String
 
-    static var parameterSummary: some ParameterSummary {
-        Summary("Search for \(.$destination)")
-    }
-
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let cleaned = destination.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else {
@@ -124,8 +120,8 @@ struct KalpanaDriveAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: SearchDriveDestinationIntent(),
             phrases: [
-                "Search for \(.$destination) in \(.applicationName)",
-                "Find \(.$destination) with \(.applicationName)"
+                "Search a destination in \(.applicationName)",
+                "Find a place with \(.applicationName)"
             ],
             shortTitle: "Search Destination",
             systemImageName: "location.magnifyingglass"
