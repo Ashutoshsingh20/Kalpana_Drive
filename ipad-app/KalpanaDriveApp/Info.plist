@@ -25,11 +25,11 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Kalpana Drive uses the iPad's location for the live map, driving speed, route guidance, trip recording, and parking location.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Kalpana Drive uses the microphone only when you activate voice control.</string>
+	<string>Kalpana Drive uses the microphone only for legacy voice control while Siri task integration is being validated.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Kalpana Drive converts your spoken driving commands into text on request.</string>
+	<string>Kalpana Drive uses speech recognition only for legacy voice control while Siri task integration is being validated.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Kalpana Drive connects directly to your nearby iPhone companion for approved contacts, Apple Music control, destinations, location, and device health.</string>
+	<string>Kalpana Drive accepts an encrypted nearby connection from the optional Kalpana Drive Phone companion.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_kalpana-drive._tcp</string>
