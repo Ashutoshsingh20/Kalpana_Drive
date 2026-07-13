@@ -1,102 +1,84 @@
 # Phase 1 status
 
-## Implemented with live platform data
+## Independent iPad application
 
-### iPad
+Implemented with live platform data:
 
-- SwiftUI landscape dashboard.
-- Live clock and date.
+- SwiftUI landscape dashboard for iPad.
+- Live clock, date, battery, charging, network, thermal and audio-route state.
 - MapKit map showing the iPad's real current location and heading.
-- Core Location speed, course, heading, accuracy, freshness filtering, and stale-fix reporting.
-- Network reachability using `NWPathMonitor`.
-- iPad Apple Music metadata and playback commands using `MPMusicPlayerController`.
-- Current audio-output inspection using `AVAudioSession`.
-- Speech recognition and spoken responses using Speech and AVFoundation.
-- Battery, charging, low-power, and thermal-state monitoring.
-- Driving-state restrictions with sustained-speed hysteresis.
-- One central safety-policy engine for dashboard, settings, media, contact browsing, number entry, calls, external media, device management, and emergency action classes.
-- Event-driven service observation; one-second work is limited to the visible clock and periodic freshness reevaluation.
-- MapKit place/address search, selectable results, route alternatives, polyline rendering, cancellation, and destination-based route recovery.
+- Core Location speed, course, heading, accuracy, freshness filtering and stale-fix reporting.
+- Destination search for places, landmarks, businesses and addresses.
+- Nearby-first search with automatic global retry when the place is outside the current region.
+- Destination search remains usable while parked when GPS permission or a fresh fix is unavailable.
+- Route alternatives, route polylines, cancellation and destination-based route recovery.
+- YouTube Music inside the application through a persistent WebKit browser surface.
+- Siri App Intents and App Shortcuts for dashboard, map, YouTube Music and destination search actions.
+- Driving-state hysteresis and a central safety-policy engine.
 - Live system-health diagnostics.
-- Atomic local recovery and route storage.
+- Atomic local recovery and deterministic domain checks.
 
-### iPhone companion
+The iPhone companion is optional. The iPad does not require it for map search, navigation planning, YouTube Music, Siri tasks, GPS or diagnostics.
 
-- SwiftUI companion source and XcodeGen application definition.
-- Nearby iPad discovery with Multipeer Connectivity.
-- Required session encryption and explicit approval on the iPad.
-- Versioned typed messages, increasing sequence numbers, and replay/out-of-order rejection.
-- Permission-driven Contacts loading and contact snapshot relay.
-- iPhone Apple Music metadata relay and real play/pause/previous/next command handling.
-- Optional foreground location sharing.
-- Upcoming calendar-event location relay.
-- Battery, charging, and network health relay.
+## Siri behavior
 
-### iPad/iPhone integration
+Siri remains Apple's system assistant. Kalpana Drive exposes supported tasks through App Intents and App Shortcuts. Siri is activated using voice or the iPad's top button and appears as a system overlay; the app cannot programmatically display or embed Siri itself.
 
-- Connection status and approval UI.
-- iPhone contacts shown and searchable on the iPad while parked.
-- One-tap outgoing-call requests through the Apple system call interface.
-- Separate controls for Apple Music playing on the iPad and Apple Music playing on the connected iPhone.
-- Voice media commands prefer the connected iPhone when available.
-- Manual number entry, contact browsing, device approval, and external media browsing are restricted by the central driving policy.
+Supported initial shortcuts:
 
-## Explicit platform limitations
+- Open dashboard.
+- Open map.
+- Open YouTube Music.
+- Search a destination, with Siri prompting for the place.
 
-- Native incoming iPhone cellular calls cannot be answered, rejected, intercepted, or reliably inspected by Kalpana Drive through public iOS APIs. They remain in Apple's Phone/Continuity interface.
-- Outgoing calls require a valid iPad system calling route, such as Calls from iPhone/Continuity or another supported calling configuration.
-- The iPhone media bridge controls the Apple Music system player only. Arbitrary Spotify, YouTube Music, and other third-party media sessions are not exposed to this app.
-- Android companion connections are not implemented.
-- Ignis vehicle telemetry is unavailable without a real tested read-only OBD-II integration.
-- Genuine Apple CarPlay and Android Auto receiver modes are outside scope.
+## YouTube Music behavior
 
-Unavailable capabilities must remain visibly unavailable. They must not be replaced with fixed values, synthetic events, fake success messages, static connection states presented as real, or interaction simulations.
+The Music section opens `music.youtube.com` inside a persistent `WKWebView`, allowing search and playback without leaving Kalpana Drive. Playback originates on the iPad and follows the iPad's active audio route.
 
-## Security status
+This is a web integration rather than a private YouTube Music SDK. Physical-device validation is required for Google sign-in, account persistence, background audio behavior and Bluetooth routing.
 
-Implemented:
+## Optional iPhone companion
 
-- Encrypted Multipeer sessions.
-- Explicit per-connection approval on the iPad.
-- Protocol version validation.
-- Monotonic sequence validation and replay rejection.
+Implemented foundation:
 
-Still required before permanent trust:
+- Encrypted nearby Multipeer session.
+- Explicit iPad approval.
+- Contacts relay.
+- Supported Apple Music state and commands.
+- Optional foreground location and calendar destinations.
+- Device-health relay.
+- Protocol version and replay checks.
 
-- Device-generated signing keys in Keychain.
-- Signed mutual-authentication handshake.
-- Trusted-device persistence based on cryptographic identity rather than display name.
-- Key revocation and re-pairing flow.
-- Payload size and rate limits.
+Still incomplete:
 
-## Automated validation
+- Permanent signed device identity and revocation.
+- Native incoming cellular-call control, which is not exposed by public iOS APIs.
+- Notification and message relay.
 
-GitHub Actions completed successfully on the companion branch using Xcode 16.4:
+## Validation completed
 
-- Generated the iPad and iPhone Xcode projects from their XcodeGen definitions.
-- Passed the dependency-free core checks.
-- Compiled the iPad simulator application target.
-- Compiled the iPhone simulator companion target.
-- Preserved compiler logs as workflow artifacts.
+GitHub Actions with Xcode 16.4 successfully:
+
+- Generated both Xcode projects.
+- Passed the core checks.
+- Compiled the independent iPad application with WebKit and Siri App Intents.
+- Compiled the optional iPhone companion.
 
 ## Physical-device validation still required
 
-- Generate and sign both Xcode projects with the user's Apple development team.
-- Install the iPhone companion on a physical iPhone.
-- Verify nearby discovery, approval, disconnect, and reconnect behavior.
-- Verify contact permission and contact relay.
-- Verify iPhone Apple Music metadata and commands.
-- Verify outgoing calling through the actual Continuity configuration.
-- Verify GPS speed during real road use.
-- Verify Bluetooth audio routing with the Ignis stereo.
-- Verify microphone recognition in cabin noise.
-- Verify heat, direct sunlight, charging, low-power, and driving-lock behavior.
+- YouTube Music sign-in, search, playback and session persistence.
+- Siri shortcut discovery and spoken destination prompts.
+- MapKit search quality for Indian places and addresses.
+- Route calculation from the actual iPad position.
+- GPS speed and movement hysteresis during road use.
+- Ignis Bluetooth audio routing.
+- Direct sunlight, charging and thermal behavior.
 
 ## Next production work
 
-- Commit freshly generated Xcode projects for direct opening without XcodeGen.
-- Add cryptographic device identity and revocation.
-- Add saved Home, College, Work, favourites, and recent-place repositories.
-- Add live route progress, step advancement, deviation detection, and recalculation.
-- Add parking, trips, emergency mode, reminders, privacy controls, and UI tests.
-- Build the Android companion only if Android phone integration is still required.
+- Test and refine the new independent-iPad experience on the physical iPad.
+- Add active route progress, current-step advancement, deviation detection and rerouting.
+- Add saved Home, College, Work and favourite destinations.
+- Add parking and trip persistence.
+- Add emergency controls.
+- Remove the legacy custom speech service after Siri device validation confirms the replacement workflow.
