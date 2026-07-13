@@ -52,10 +52,26 @@ final class NativeContactService: ObservableObject {
                 CNContactThumbnailImageDataKey as CNKeyDescriptor,
                 CNContactFormatter.descriptorForRequiredKeys(for: .fullName)
             ]
-            let request = CNContactFetchRequest(keysToFetch: keysToFetch)
+            let store = CNContactStore()
             var fetched: [KalpanaContact] = []
             do {
-                try CNContactStore().enumerateContacts(with: request) { contact, _ in
+                // Fetch contacts from all active containers (iCloud, Exchange, Gmail, Local, etc.)
+                let containers = try store.containers(matching: nil)
+                var allCNContacts: [CNContact] = []
+                
+                for container in containers {
+                    let predicate = CNContact.predicateForContactsInContainer(withIdentifier: container.identifier)
+                    let containerContacts = try store.unifiedContacts(matching: predicate, keysToFetch: keysToFetch)
+                    allCNContacts.append(contentsOf: containerContacts)
+                }
+                
+                // Deduplicate by identifier
+                var uniqueContacts: [String: CNContact] = [:]
+                for contact in allCNContacts {
+                    uniqueContacts[contact.identifier] = contact
+                }
+                
+                for contact in uniqueContacts.values {
                     let displayName = CNContactFormatter.string(from: contact, style: .fullName)
                         ?? (contact.organizationName.isEmpty ? "Unnamed Contact" : contact.organizationName)
 
@@ -66,7 +82,7 @@ final class NativeContactService: ObservableObject {
                         return LabeledPhoneNumber(label: label, number: labelNum.value.stringValue)
                     }
 
-                    guard !phoneNumbers.isEmpty else { return }
+                    guard !phoneNumbers.isEmpty else { continue }
 
                     let id = contact.identifier
                     let meta = metadata[id] ?? ContactMetadata()
