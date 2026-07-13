@@ -216,24 +216,50 @@ final class MapKitNavigationService: ObservableObject {
 
         isSearching = true
         defer { isSearching = false }
+
+        do {
+            var items = try await performSearch(query: trimmed, near: coordinate)
+            if items.isEmpty, coordinate != nil {
+                items = try await performSearch(query: trimmed, near: nil)
+            }
+
+            let uniqueItems = deduplicated(items)
+            searchResults = uniqueItems.prefix(12).map(MapSearchResult.init)
+            lastError = searchResults.isEmpty ? "No places matched that search. Try adding the city or state." : nil
+        } catch {
+            searchResults = []
+            lastError = "Place search failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func performSearch(
+        query: String,
+        near coordinate: CLLocationCoordinate2D?
+    ) async throws -> [MKMapItem] {
         let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = trimmed
+        request.naturalLanguageQuery = query
         request.resultTypes = [.address, .pointOfInterest]
         if let coordinate {
             request.region = MKCoordinateRegion(
                 center: coordinate,
-                latitudinalMeters: 50_000,
-                longitudinalMeters: 50_000
+                latitudinalMeters: 200_000,
+                longitudinalMeters: 200_000
             )
         }
+        let response = try await MKLocalSearch(request: request).start()
+        return response.mapItems
+    }
 
-        do {
-            let response = try await MKLocalSearch(request: request).start()
-            searchResults = response.mapItems.prefix(8).map(MapSearchResult.init)
-            lastError = searchResults.isEmpty ? "No places matched that search." : nil
-        } catch {
-            searchResults = []
-            lastError = "Place search failed: \(error.localizedDescription)"
+    private func deduplicated(_ items: [MKMapItem]) -> [MKMapItem] {
+        var seen = Set<String>()
+        return items.filter { item in
+            let coordinate = item.placemark.coordinate
+            let key = [
+                item.name?.lowercased() ?? "",
+                String(format: "%.5f", coordinate.latitude),
+                String(format: "%.5f", coordinate.longitude)
+            ].joined(separator: "|")
+            return seen.insert(key).inserted
         }
     }
 
@@ -317,7 +343,7 @@ final class MapKitNavigationService: ObservableObject {
 }
 
 struct MapSearchResult: Identifiable {
-    let id = UUID()
+    let id: String
     let mapItem: MKMapItem
     let name: String
     let address: String
@@ -326,6 +352,12 @@ struct MapSearchResult: Identifiable {
         self.mapItem = mapItem
         name = mapItem.name ?? "Unnamed place"
         address = mapItem.placemark.title ?? "Address unavailable"
+        let coordinate = mapItem.placemark.coordinate
+        id = [
+            name.lowercased(),
+            String(format: "%.5f", coordinate.latitude),
+            String(format: "%.5f", coordinate.longitude)
+        ].joined(separator: "|")
     }
 
     var destination: Destination {
