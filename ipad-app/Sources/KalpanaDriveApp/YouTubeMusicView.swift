@@ -80,26 +80,24 @@ private struct YouTubeMusicWebView: UIViewRepresentable {
         webView.load(request)
     }
 
+    @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
         var lastReloadToken: UUID?
 
         func webView(
             _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-        ) {
+            decidePolicyFor navigationAction: WKNavigationAction
+        ) async -> WKNavigationActionPolicy {
             guard let url = navigationAction.request.url else {
-                decisionHandler(.cancel)
-                return
+                return .cancel
             }
 
             if let scheme = url.scheme?.lowercased(), scheme != "https", scheme != "http", scheme != "about" {
-                UIApplication.shared.open(url)
-                decisionHandler(.cancel)
-                return
+                _ = await UIApplication.shared.open(url)
+                return .cancel
             }
 
-            decisionHandler(.allow)
+            return .allow
         }
     }
 }
