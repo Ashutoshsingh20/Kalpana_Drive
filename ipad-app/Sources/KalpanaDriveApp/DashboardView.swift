@@ -642,39 +642,59 @@ struct TripMetricsWidget: View {
 
 struct YouTubeMusicWidget: View {
     @ObservedObject var model: DashboardViewModel
-    @State private var localElapsed: TimeInterval = 105
-    @State private var timer: Timer? = nil
+    @ObservedObject private var nowPlaying: NowPlayingObserver = .shared
 
     var body: some View {
+        Group {
+            if nowPlaying.isActive {
+                playingView
+            } else {
+                emptyView
+            }
+        }
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(nowPlaying.isActive ? 0.12 : 0.06), lineWidth: 1)
+        )
+    }
+
+    // MARK: — Active playback
+
+    @ViewBuilder private var playingView: some View {
         VStack(spacing: 12) {
             HStack(spacing: 16) {
-                Group {
-                    if !model.media.title.isEmpty {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.blue.opacity(0.15))
-                                .frame(width: 64, height: 64)
-                            Image(systemName: "music.note")
-                                .font(.title)
-                                .foregroundColor(.white)
-                        }
-                    } else {
-                        NightDriveArt()
+                // Artwork
+                if let artwork = nowPlaying.trackArtwork {
+                    Image(uiImage: artwork)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue.opacity(0.15))
                             .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        Image(systemName: "music.note")
+                            .font(.title)
+                            .foregroundColor(.white)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(titleString)
+                    Text(nowPlaying.trackTitle)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .lineLimit(1)
-                    Text(artistString)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                        .lineLimit(1)
-                    Text("Playing on YouTube Music")
+                    if !nowPlaying.trackArtist.isEmpty {
+                        Text(nowPlaying.trackArtist)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.6))
+                            .lineLimit(1)
+                    }
+                    Text("Now Playing")
                         .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.4))
                 }
@@ -683,62 +703,62 @@ struct YouTubeMusicWidget: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
 
-            VStack(spacing: 4) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.15))
-                            .frame(height: 4)
-                        Capsule()
-                            .fill(Color.white)
-                            .frame(width: geo.size.width * CGFloat(progressPercent), height: 4)
+            // Progress bar — only when duration is reported by the audio session
+            if nowPlaying.duration > 0 {
+                VStack(spacing: 4) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.15))
+                                .frame(height: 4)
+                            Capsule()
+                                .fill(Color.white)
+                                .frame(
+                                    width: geo.size.width * CGFloat(
+                                        min(1, nowPlaying.elapsed / nowPlaying.duration)
+                                    ),
+                                    height: 4
+                                )
+                        }
                     }
-                }
-                .frame(height: 4)
-                .padding(.horizontal, 16)
+                    .frame(height: 4)
+                    .padding(.horizontal, 16)
 
-                HStack {
-                    Text(formatTime(elapsedTime))
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundColor(.white.opacity(0.5))
-                    Spacer()
-                    Text(formatTime(durationTime))
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundColor(.white.opacity(0.5))
+                    HStack {
+                        Text(formatTime(nowPlaying.elapsed))
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundColor(.white.opacity(0.5))
+                        Spacer()
+                        Text(formatTime(nowPlaying.duration))
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
             }
 
+            // Playback controls
             HStack(spacing: 36) {
-                Button(action: {
-                    model.previousTrack()
-                    resetLocalPlaybackState()
-                }) {
+                Button(action: { nowPlaying.previous() }) {
                     Image(systemName: "backward.fill")
                         .font(.system(size: 18))
                         .foregroundColor(.white)
                 }
                 .buttonStyle(.plain)
 
-                Button(action: {
-                    model.togglePlayback()
-                }) {
+                Button(action: { nowPlaying.togglePlayPause() }) {
                     ZStack {
                         Circle()
                             .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
                             .frame(width: 48, height: 48)
-                        
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        Image(systemName: nowPlaying.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 18))
                             .foregroundColor(.white)
                     }
                 }
                 .buttonStyle(.plain)
 
-                Button(action: {
-                    model.nextTrack()
-                    resetLocalPlaybackState()
-                }) {
+                Button(action: { nowPlaying.next() }) {
                     Image(systemName: "forward.fill")
                         .font(.system(size: 18))
                         .foregroundColor(.white)
@@ -747,97 +767,37 @@ struct YouTubeMusicWidget: View {
             }
             .padding(.bottom, 16)
         }
-        .background(Color.black.opacity(0.85))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .onAppear {
-            startTimer()
-        }
-        .onDisappear {
-            stopTimer()
-        }
-        .onChange(of: model.media) { _, newMedia in
-            if !newMedia.title.isEmpty {
-                localElapsed = newMedia.elapsed
-            }
-        }
     }
 
-    private var isPlaying: Bool {
-        if !model.media.title.isEmpty {
-            return model.media.isPlaying
+    // MARK: — Nothing playing
+
+    private var emptyView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "music.note.list")
+                .font(.system(size: 28))
+                .foregroundColor(.white.opacity(0.2))
+            Text("No music playing")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.35))
+            Text("Open YouTube Music or Apple Music to begin")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.2))
+                .multilineTextAlignment(.center)
         }
-        return true
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
     }
 
-    private var titleString: String {
-        if !model.media.title.isEmpty {
-            return model.media.title
-        }
-        return "Kesariya"
-    }
-
-    private var artistString: String {
-        if !model.media.title.isEmpty {
-            return model.media.artist
-        }
-        return "Arijit Singh"
-    }
-
-    private var elapsedTime: TimeInterval {
-        if !model.media.title.isEmpty {
-            return model.media.elapsed
-        }
-        return localElapsed
-    }
-
-    private var durationTime: TimeInterval {
-        if !model.media.title.isEmpty && model.media.duration > 0 {
-            return model.media.duration
-        }
-        return 269
-    }
-
-    private var progressPercent: Double {
-        let dur = durationTime
-        guard dur > 0 else { return 0 }
-        return min(1.0, elapsedTime / dur)
-    }
+    // MARK: — Helpers
 
     private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
+        let t = max(0, time)
+        let minutes = Int(t) / 60
+        let seconds = Int(t) % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
-
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if isPlaying {
-                if model.media.title.isEmpty {
-                    if localElapsed < 269 {
-                        localElapsed += 1
-                    } else {
-                        localElapsed = 0
-                    }
-                }
-            }
-        }
-    }
-
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    private func resetLocalPlaybackState() {
-        if model.media.title.isEmpty {
-            localElapsed = 0
-        }
-    }
 }
+
 
 struct NightDriveArt: View {
     var body: some View {

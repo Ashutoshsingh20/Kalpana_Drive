@@ -512,9 +512,21 @@ final class DashboardViewModel: ObservableObject {
         ])
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
-            DispatchQueue.main.async { self?.refreshLiveState() }
+            // BUG FIX: removed redundant inner DispatchQueue.main.async — we are
+            // already on the main queue from .receive(on: DispatchQueue.main).
+            self?.refreshLiveState()
         }
         .store(in: &cancellables)
+
+        // BUG FIX: feed location into downstream services via a *separate* subscriber
+        // so that refreshLiveState() remains a pure-read function.  The old design
+        // called navigationEngine.updateLocation() inside refreshLiveState(), which
+        // made navigationEngine fire objectWillChange → mergedPublisher → refreshLiveState
+        // → updateLocation again, creating an unbounded feedback loop.
+        locationService.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.feedLocationToServices() }
+            .store(in: &cancellables)
 
         let center = NotificationCenter.default
         Publishers.MergeMany([
@@ -566,24 +578,6 @@ final class DashboardViewModel: ObservableObject {
         navHasArrived = navigationEngine.hasArrived
         navCurrentStreet = navigationEngine.currentStreet
 
-        // Feed live location to NavigationEngine
-        if let coord = locationService.coordinate {
-            let loc = CLLocation(
-                coordinate: coord,
-                altitude: 0,
-                horizontalAccuracy: locationService.horizontalAccuracy ?? 10,
-                verticalAccuracy: -1,
-                course: locationService.courseDegrees ?? -1,
-                speed: speed,
-                timestamp: locationService.lastLocationTimestamp ?? Date()
-            )
-            navigationEngine.updateLocation(loc)
-            parkingService.updateSpeedAndLocation(speedMPS: speed, coordinate: coord)
-            if isTripRecording {
-                tripRecorder.updateLocation(location: loc)
-            }
-        }
-
         // Trip / Parking state
         isTripRecording = tripRecorder.isRecording
         trips = tripRecorder.trips
@@ -625,6 +619,31 @@ final class DashboardViewModel: ObservableObject {
             )
         )
     }
+
+    // MARK: — Location → downstream services feed
+
+    /// One-way feed: location service update → navigation engine, parking, trip recorder.
+    /// Kept separate from refreshLiveState() so downstream objectWillChange emissions
+    /// do not re-enter refreshLiveState() and form a feedback loop.
+    private func feedLocationToServices() {
+        let speed = max(0, locationService.speedMetresPerSecond)
+        guard let coord = locationService.coordinate else { return }
+        let loc = CLLocation(
+            coordinate: coord,
+            altitude: 0,
+            horizontalAccuracy: locationService.horizontalAccuracy ?? 10,
+            verticalAccuracy: -1,
+            course: locationService.courseDegrees ?? -1,
+            speed: speed,
+            timestamp: locationService.lastLocationTimestamp ?? Date()
+        )
+        navigationEngine.updateLocation(loc)
+        parkingService.updateSpeedAndLocation(speedMPS: speed, coordinate: coord)
+        if isTripRecording {
+            tripRecorder.updateLocation(location: loc)
+        }
+    }
+
 
     private func authorizationDescription(_ status: CLAuthorizationStatus) -> String {
         switch status {
