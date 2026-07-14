@@ -5,10 +5,13 @@ import Foundation
 final class MusicSessionCoordinator: ObservableObject {
     private let browser: YouTubeMusicBrowserController
     private var wasPlayingBeforeActivation = false
+    
+    @Published var errorMessage: String? = nil
 
     init(browser: YouTubeMusicBrowserController) {
         self.browser = browser
         setupNotifications()
+        setupAudioSession()
     }
 
     private func setupNotifications() {
@@ -25,6 +28,22 @@ final class MusicSessionCoordinator: ObservableObject {
             name: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance()
         )
+        center.addObserver(
+            self,
+            selector: #selector(handleMediaServicesReset),
+            name: AVAudioSession.mediaServicesWereResetNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    private func setupAudioSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.allowBluetoothHFP, .allowAirPlay])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            errorMessage = "Failed to configure audio session: \(error.localizedDescription)"
+        }
     }
 
     @objc private func handleInterruption(notification: Notification) {
@@ -38,12 +57,12 @@ final class MusicSessionCoordinator: ObservableObject {
             switch type {
             case .began:
                 // System interrupted playback (e.g. phone call)
-                browser.pause()
+                await browser.pause()
             case .ended:
                 if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
                     let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
                     if options.contains(.shouldResume) {
-                        browser.play()
+                        await browser.play()
                     }
                 }
             @unknown default:
@@ -64,40 +83,44 @@ final class MusicSessionCoordinator: ObservableObject {
             case .oldDeviceUnavailable:
                 // Audio route disconnected (e.g. headphones pulled out, bluetooth disconnected)
                 // Pause to prevent audio leaking to iPad speaker unexpectedly
-                browser.pause()
+                await browser.pause()
             default:
                 break
             }
         }
     }
 
+    @objc private func handleMediaServicesReset() {
+        Task { @MainActor in
+            setupAudioSession()
+        }
+    }
+
     func prepareForVoiceActivation() {
         wasPlayingBeforeActivation = browser.isPlayerAvailable && browser.isPlaying
         if wasPlayingBeforeActivation {
-            // Duck or pause music
-            browser.pause()
+            Task {
+                await browser.pause()
+            }
         }
         
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            print("Failed to configure voice session: \(error.localizedDescription)")
+            errorMessage = "Failed to configure voice session: \(error.localizedDescription)"
         }
     }
 
     func restoreAfterVoiceDeactivation() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowAirPlay])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("Failed to restore playback session: \(error.localizedDescription)")
-        }
+        setupAudioSession()
 
         if wasPlayingBeforeActivation {
-            browser.play()
+            Task {
+                await browser.play()
+                wasPlayingBeforeActivation = false
+            }
         }
     }
 }

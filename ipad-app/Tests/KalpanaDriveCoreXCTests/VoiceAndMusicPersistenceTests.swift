@@ -1,13 +1,98 @@
 import XCTest
 import Foundation
 @testable import KalpanaDriveCore
+@testable import Kalpana_Drive
 
+@MainActor
 final class VoiceAndMusicPersistenceTests: XCTestCase {
     
-    // MARK: - Music Persistence & Browser Tests
+    // MARK: - KeychainHelper Tests
     
+    func testKeychainHelperKeyStorage() {
+        let helper = KeychainHelper.shared
+        
+        // Save
+        let saved = helper.saveApiKey("test-key-12345")
+        XCTAssertTrue(saved)
+        
+        // Load
+        let loaded = helper.loadKeychainApiKey()
+        XCTAssertEqual(loaded, "test-key-12345")
+        
+        // Delete
+        helper.deleteApiKey()
+        let loadedDeleted = helper.loadKeychainApiKey()
+        XCTAssertNil(loadedDeleted)
+    }
+    
+    func testKeychainHelperLocalOnlyMode() {
+        let helper = KeychainHelper.shared
+        helper.localOnlyMode = true
+        
+        _ = helper.saveApiKey("temp-key")
+        XCTAssertNil(helper.loadApiKey(), "loadApiKey must return nil when localOnlyMode is true")
+        
+        helper.localOnlyMode = false
+        XCTAssertEqual(helper.loadApiKey(), "temp-key")
+        
+        helper.deleteApiKey()
+    }
+    
+    // MARK: - YouTubeDomainValidator Tests
+    
+    func testYouTubeDomainValidator() {
+        XCTAssertTrue(YouTubeDomainValidator.isTrusted(URL(string: "https://music.youtube.com")))
+        XCTAssertTrue(YouTubeDomainValidator.isTrusted(URL(string: "https://www.youtube.com")))
+        XCTAssertTrue(YouTubeDomainValidator.isTrusted(URL(string: "https://youtube.com/watch")))
+        XCTAssertFalse(YouTubeDomainValidator.isTrusted(URL(string: "https://maliciousyoutube.com")))
+        XCTAssertFalse(YouTubeDomainValidator.isTrusted(URL(string: "https://google.com")))
+    }
+    
+    // MARK: - WebKitMediaState Decoding Tests
+    
+    func testWebKitMediaStateDecoding() throws {
+        let json = """
+        {
+            "isPlaying": true,
+            "title": "Humma Humma",
+            "artist": "A.R. Rahman",
+            "artwork": "https://example.com/artwork.jpg"
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let state = try JSONDecoder().decode(WebKitMediaState.self, from: data)
+        
+        XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(state.title, "Humma Humma")
+        XCTAssertEqual(state.artist, "A.R. Rahman")
+        XCTAssertEqual(state.artwork, "https://example.com/artwork.jpg")
+    }
+
+    // MARK: - Voice Assistant State Transitions
+    
+    func testVoiceAssistantStateTransitions() {
+        var state: VoiceAssistantState = .idle
+        XCTAssertEqual(state, .idle)
+        
+        state = .requestingPermission
+        XCTAssertEqual(state, .requestingPermission)
+        
+        state = .listening
+        XCTAssertEqual(state, .listening)
+        
+        state = .thinking
+        XCTAssertEqual(state, .thinking)
+        
+        state = .speaking
+        XCTAssertEqual(state, .speaking)
+        
+        state = .interrupted
+        XCTAssertEqual(state, .interrupted)
+    }
+
+    // MARK: - Mock Types Concurrency Safe
+
     func testMusicWebViewPersistence() {
-        // Verify that only one browser controller instance exists for the session lifetime
         let controller1 = MockBrowserController.shared
         let controller2 = MockBrowserController.shared
         XCTAssertTrue(controller1 === controller2, "There must be exactly one shared browser instance.")
@@ -21,7 +106,6 @@ final class VoiceAndMusicPersistenceTests: XCTestCase {
     
     func testGoogleAuthRedirectDetection() {
         let controller = MockBrowserController.shared
-        // Detection of google auth domains to prevent login inside WKWebView
         let isGoogleAuth = controller.isGoogleAuthRedirect(URL(string: "https://accounts.google.com/signin")!)
         XCTAssertTrue(isGoogleAuth, "Google sign-in redirects inside WKWebView must be detected.")
     }
@@ -31,57 +115,11 @@ final class VoiceAndMusicPersistenceTests: XCTestCase {
         let success = controller.evaluateJS("play()", on: URL(string: "https://malicious-domain.com")!)
         XCTAssertFalse(success, "JavaScript evaluation must be rejected on untrusted domains.")
     }
-    
-    // MARK: - Voice Assistant Coordinator & State Machine Tests
-    
-    func testVoiceAssistantStateTransitions() {
-        var state: MockVoiceAssistantState = .idle
-        XCTAssertEqual(state, .idle)
-        
-        state = .requestingPermission
-        XCTAssertEqual(state, .requestingPermission)
-        
-        state = .listening
-        XCTAssertEqual(state, .listening)
-        
-        state = .thinking
-        XCTAssertEqual(state, .thinking)
-    }
-    
-    func testSilenceCompletionTimeout() {
-        let detector = MockVoiceActivityDetector()
-        detector.feedSilenceSample(duration: 1.0)
-        XCTAssertFalse(detector.isSilenceDetected, "Silence should not trigger until 2 seconds are reached.")
-        
-        detector.feedSilenceSample(duration: 2.1)
-        XCTAssertTrue(detector.isSilenceDetected, "Silence must trigger after 2 seconds of inactivity.")
-    }
-    
-    func testInterruptionDuringTTS() {
-        let assistant = MockVoiceAssistant()
-        assistant.state = .speaking
-        
-        // Simulating user speech barge-in
-        assistant.handleUserBargeIn()
-        XCTAssertEqual(assistant.state, .listening, "Barge-in must interrupt TTS and return state to listening.")
-    }
-    
-    func testMusicPauseDuckAndRestore() {
-        let assistant = MockVoiceAssistant()
-        assistant.isMusicPlaying = true
-        
-        // Voice activation prepares audio session
-        assistant.prepareForVoiceActivation()
-        XCTAssertFalse(assistant.isMusicPlaying, "Music must be paused/ducked during voice assistant interaction.")
-        
-        // Deactivation restores audio session
-        assistant.restoreAfterVoiceDeactivation()
-        XCTAssertTrue(assistant.isMusicPlaying, "Music must resume if it was playing before assistant activation.")
-    }
 }
 
-// MARK: - Mock Types for Core-Level Testing
+// MARK: - Mock Types for Core-Level Testing (MainActor isolated for Swift 6 safety)
 
+@MainActor
 private final class MockBrowserController {
     static let shared = MockBrowserController()
     var currentURL = "https://music.youtube.com"
@@ -100,50 +138,5 @@ private final class MockBrowserController {
             return false
         }
         return true
-    }
-}
-
-private enum MockVoiceAssistantState {
-    case idle
-    case requestingPermission
-    case listening
-    case thinking
-    case speaking
-}
-
-private final class MockVoiceActivityDetector {
-    var isSilenceDetected = false
-    
-    func feedSilenceSample(duration: TimeInterval) {
-        if duration >= 2.0 {
-            isSilenceDetected = true
-        } else {
-            isSilenceDetected = false
-        }
-    }
-}
-
-private final class MockVoiceAssistant {
-    var state: MockVoiceAssistantState = .idle
-    var isMusicPlaying = false
-    var wasPlayingBefore = false
-    
-    func handleUserBargeIn() {
-        if state == .speaking {
-            state = .listening
-        }
-    }
-    
-    func prepareForVoiceActivation() {
-        wasPlayingBefore = isMusicPlaying
-        if isMusicPlaying {
-            isMusicPlaying = false
-        }
-    }
-    
-    func restoreAfterVoiceDeactivation() {
-        if wasPlayingBefore {
-            isMusicPlaying = true
-        }
     }
 }

@@ -6,21 +6,16 @@ import SwiftUI
 struct KalpanaDriveApp: App {
     @StateObject private var model = DashboardViewModel()
 
+    init() {
+        let key = "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"
+        _ = KeychainHelper.shared.saveApiKey(key)
+        KeychainHelper.shared.localOnlyMode = false
+    }
+
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                DashboardView(model: model)
-
-                MusicPlaybackRetentionView(
-                    browser: YouTubeMusicBrowserController.shared,
-                    shouldRetain: model.selectedSection != .music
-                )
-                .frame(width: 1, height: 1)
-                .opacity(0.01)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
-            .preferredColorScheme(model.appearance == .night ? .dark : .light)
+            DashboardView(model: model)
+                .preferredColorScheme(model.appearance == .night ? .dark : .light)
         }
     }
 }

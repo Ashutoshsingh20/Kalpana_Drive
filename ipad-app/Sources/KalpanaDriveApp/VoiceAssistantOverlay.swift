@@ -62,8 +62,7 @@ struct VoiceAssistantOverlay: View {
                     }
                 }
                 .padding(12)
-                .background(Color.primary.opacity(0.04))
-                .cornerRadius(10)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
 
                 // Interactive Waveform representation
                 if coordinator.state == .listening || coordinator.state == .detectingSpeech {
@@ -77,10 +76,25 @@ struct VoiceAssistantOverlay: View {
                     .frame(height: 36)
                 }
 
+                if coordinator.state == .speaking {
+                    Button(action: {
+                        coordinator.cancelListening()
+                    }) {
+                        Label("Tap to interrupt", systemImage: "hand.raised.fill")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.red.opacity(0.15))
+                            .foregroundStyle(.red)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 // Confirm / Cancel Actions for pending operations
-                if case .awaitingConfirmation(let message, let confirmAction) = coordinator.state {
+                if coordinator.state == .awaitingConfirmation, let pending = coordinator.pendingAction {
                     VStack(spacing: 10) {
-                        Text(message)
+                        Text(pending.message)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -92,7 +106,7 @@ struct VoiceAssistantOverlay: View {
                             .buttonStyle(.bordered)
 
                             Button("Confirm") {
-                                coordinator.confirmAction(action: confirmAction)
+                                coordinator.confirmAction()
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -100,14 +114,9 @@ struct VoiceAssistantOverlay: View {
                 }
             }
             .padding(18)
-            .background(.ultraThinMaterial)
-            .cornerRadius(18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1.5)
-            )
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
             .frame(maxWidth: 420)
-            .shadow(color: Color.black.opacity(0.15), radius: 10, y: 5)
+            .shadow(color: Color.blue.opacity(0.18), radius: 24, y: 8)
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
     }
@@ -129,11 +138,15 @@ struct VoiceAssistantOverlay: View {
     }
 
     private func waveHeight(for index: Int) -> CGFloat {
-        // Convert dB micLevel (e.g. -100 to 0) to standard height range
+        // Convert dB micLevel (e.g. -80 to 0) to standard height range
         let level = max(0, coordinator.micLevel + 80) // shift so 0-80 range
         let normalized = CGFloat(level / 80.0)
         let baseHeight: CGFloat = 6.0
-        let randomFactor = CGFloat.random(in: 0.7...1.3)
-        return max(baseHeight, baseHeight + normalized * 30.0 * randomFactor)
+        
+        // Use a deterministic wave pattern based on the index to create a nice symmetric envelope
+        let factor = sin(Double(index) * Double.pi / 11.0)
+        let envelope = CGFloat(factor)
+        
+        return max(baseHeight, baseHeight + normalized * 30.0 * envelope)
     }
 }

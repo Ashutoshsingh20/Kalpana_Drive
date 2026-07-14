@@ -5,7 +5,18 @@ import AVFoundation
 @MainActor
 final class SpeechRecognitionService: NSObject, ObservableObject {
     @Published var isAuthorized = false
-    @Published var selectedLanguage: LanguageMode = .en_IN
+
+    var selectedLanguage: LanguageMode {
+        get {
+            let saved = UserDefaults.standard.string(forKey: "com.ashutoshsingh.kalpanadrive.selectedLanguage") ?? "en_IN"
+            return LanguageMode(rawValue: saved) ?? .en_IN
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: "com.ashutoshsingh.kalpanadrive.selectedLanguage")
+            updateRecognizer()
+        }
+    }
 
     enum LanguageMode: String, CaseIterable, Identifiable {
         case en_IN = "English (India)"
@@ -55,8 +66,10 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: selectedLanguage.localeIdentifier))
     }
 
-    func startRecognition(audioEngine: AVAudioEngine, onTranscript: @escaping @MainActor (String, Bool) -> Void, onError: @escaping @MainActor (Error) -> Void) throws {
-        // Cancel any pending task
+    func beginRecognition(
+        onTranscript: @escaping @MainActor (String, Bool) -> Void,
+        onError: @escaping @MainActor (Error) -> Void
+    ) throws {
         cancelExistingTask()
 
         let request = SFSpeechAudioBufferRecognitionRequest()
@@ -69,23 +82,12 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
         
         recognitionRequest = request
 
-        let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        
-        // Remove tap to be safe before installing a new one
-        inputNode.removeTap(onBus: 0)
-        
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            request.append(buffer)
-        }
-
-        recognitionTask = recognizer?.recognitionTask(with: request) { result, error in
+        recognitionTask = recognizer?.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
             Task { @MainActor in
                 if let result {
                     let text = result.bestTranscription.formattedString
                     let isFinal = result.isFinal
-                    
-                    // Apply optional Hinglish normalization
                     let processedText = self.applyHinglishNormalization(text)
                     onTranscript(processedText, isFinal)
                 }
@@ -96,10 +98,15 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
         }
     }
 
-    func stopRecognition(audioEngine: AVAudioEngine) {
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
+    func append(_ buffer: AVAudioPCMBuffer) {
+        recognitionRequest?.append(buffer)
+    }
+
+    func finishRecognition() {
         recognitionRequest?.endAudio()
+    }
+
+    func cancelRecognition() {
         cancelExistingTask()
     }
 
@@ -111,7 +118,6 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
 
     private func applyHinglishNormalization(_ text: String) -> String {
         guard selectedLanguage == .hinglish else { return text }
-        // Simple map from phonetic Devnagari transcript segments to normalized Hindi/English words
         var output = text
         let map: [String: String] = [
             "cng": "CNG",

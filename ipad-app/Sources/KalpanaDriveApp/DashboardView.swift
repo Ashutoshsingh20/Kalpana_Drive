@@ -11,37 +11,45 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            palette.background.ignoresSafeArea()
-            VStack(spacing: 16) {
-                StatusBar(model: model, palette: palette)
-                if let error = model.errorMessage {
-                    ErrorBanner(message: error, dismiss: model.clearError)
+            HStack(spacing: 0) {
+                // Left vertical sidebar
+                LeftSidebar(model: model, showSiriHelp: $showSiriHelp)
+                
+                // Main content area
+                VStack(spacing: 16) {
+                    if let error = model.errorMessage {
+                        ErrorBanner(message: error, dismiss: model.clearError)
+                            .padding(.horizontal, 16)
+                    }
+                    
+                    content
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                    
+                    BottomNavigationBar(model: model)
+                        .padding(.bottom, 16)
                 }
-                content
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                BottomNavigation(
-                    model: model,
-                    palette: palette,
-                    openSiriHelp: { showSiriHelp = true },
-                    openAskDrive: { model.voiceAssistant.toggleListening() }
-                )
+                .background(Color(white: 0.03)) // Deep dark background
             }
-            .padding(20)
-
-            // Voice Assistant Overlay
-            VStack {
-                Spacer()
-                HStack {
+            
+            // Voice Assistant Overlay (floating when active on other tabs)
+            if model.voiceAssistant.state != .idle && model.selectedSection != .map {
+                VStack {
                     Spacer()
-                    VoiceAssistantOverlay(coordinator: model.voiceAssistant, onKeyboardTap: {
-                        model.voiceAssistant.cancelListening()
-                        showAskDrive = true
-                    })
-                    .padding(24)
+                    HStack {
+                        Spacer()
+                        VoiceAssistantOverlay(coordinator: model.voiceAssistant, onKeyboardTap: {
+                            model.voiceAssistant.cancelListening()
+                            showAskDrive = true
+                        })
+                        .padding(24)
+                    }
                 }
             }
         }
-        .foregroundStyle(palette.foreground)
+        .foregroundStyle(.white)
+        .preferredColorScheme(.dark) // Locked to dark theme for premium feel
         .sheet(isPresented: $model.isDiagnosticsPresented) {
             DiagnosticsView(model: model)
         }
@@ -61,17 +69,17 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch model.selectedSection {
-        case .home:
+        ZStack {
             HomeSection(model: model)
-        case .map:
+                .sectionVisibility(isVisible: model.selectedSection == .home)
             NavigationMapSection(model: model)
-        case .music:
+                .sectionVisibility(isVisible: model.selectedSection == .map)
             MusicSection(model: model)
-        case .phone:
+                .sectionVisibility(isVisible: model.selectedSection == .music)
             PhoneSection(model: model)
-        case .settings:
+                .sectionVisibility(isVisible: model.selectedSection == .phone)
             SettingsSection(model: model)
+                .sectionVisibility(isVisible: model.selectedSection == .settings)
         }
     }
 
@@ -111,10 +119,12 @@ private struct StatusBar: View {
                     .font(.headline)
             }
             Spacer()
-            StatusPill(text: model.drivingState.rawValue, prominent: model.drivingState.restrictsInteraction, palette: palette)
-            StatusPill(text: "GPS: \(model.locationAccuracy)", palette: palette)
-            StatusPill(text: "AUDIO: \(model.audioRoute.rawValue.uppercased())", palette: palette)
-            StatusPill(text: model.isOnline ? "ONLINE" : "OFFLINE", prominent: !model.isOnline, palette: palette)
+            HStack(spacing: 6) {
+                StatusPill(text: model.drivingState.rawValue, prominent: model.drivingState.restrictsInteraction, palette: palette)
+                StatusPill(text: "GPS: \(model.locationAccuracy)", palette: palette)
+                StatusPill(text: "AUDIO: \(model.audioRoute.rawValue.uppercased())", palette: palette)
+                StatusPill(text: model.isOnline ? "ONLINE" : "OFFLINE", prominent: !model.isOnline, palette: palette)
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -126,14 +136,22 @@ private struct StatusPill: View {
     let palette: DrivePalette
 
     var body: some View {
-        Text(text)
-            .font(.caption.bold())
-            .padding(.horizontal, 12)
-            .frame(minHeight: 42)
-            .background(prominent ? palette.foreground : palette.card)
-            .foregroundStyle(prominent ? palette.background : palette.foreground)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 2))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+        if prominent {
+            Text(text)
+                .font(.caption.bold())
+                .padding(.horizontal, 12)
+                .frame(minHeight: 42)
+                .background(palette.foreground)
+                .foregroundStyle(palette.background)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else {
+            Text(text)
+                .font(.caption.bold())
+                .padding(.horizontal, 12)
+                .frame(minHeight: 42)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(palette.foreground)
+        }
     }
 }
 
@@ -143,66 +161,749 @@ private struct ErrorBanner: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             Text(message).font(.headline).lineLimit(2)
             Spacer()
             Button("Dismiss", action: dismiss).buttonStyle(.bordered)
         }
         .padding(14)
-        .background(Color.primary.opacity(0.08))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 2))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .glassEffect(.regular.tint(.orange.opacity(0.15)), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
-private struct BottomNavigation: View {
+struct LeftSidebar: View {
     @ObservedObject var model: DashboardViewModel
-    let palette: DrivePalette
-    let openSiriHelp: () -> Void
-    let openAskDrive: () -> Void
+    @Binding var showSiriHelp: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            ForEach(DashboardSection.allCases) { section in
-                Button {
-                    model.selectSection(section)
-                } label: {
-                    VStack(spacing: 5) {
+        VStack(spacing: 24) {
+            // Logo
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    .frame(width: 44, height: 44)
+                Text("K")
+                    .font(.system(size: 20, weight: .light, design: .serif))
+                    .foregroundStyle(.white)
+            }
+            .padding(.top, 16)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(height: 1)
+                .padding(.horizontal, 16)
+
+            // Navigation Icons
+            VStack(spacing: 28) {
+                ForEach(DashboardSection.allCases) { section in
+                    let isSelected = model.selectedSection == section
+                    Button {
+                        model.selectSection(section)
+                    } label: {
                         Image(systemName: icon(for: section))
-                        Text(section.rawValue)
+                            .font(.system(size: 20))
+                            .foregroundStyle(isSelected ? .white : .white.opacity(0.4))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(isSelected ? Color.white.opacity(0.1) : Color.clear)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(isSelected ? Color.white.opacity(0.5) : Color.clear, lineWidth: 1)
+                                    .shadow(color: isSelected ? .white.opacity(0.5) : .clear, radius: 4)
+                            )
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 64)
-                    .background(model.selectedSection == section ? palette.foreground : palette.card)
-                    .foregroundStyle(model.selectedSection == section ? palette.background : palette.foreground)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
-            Button(action: openAskDrive) {
-                VStack(spacing: 5) {
-                    Image(systemName: "sparkles")
-                    Text("Ask Drive")
+            Spacer()
+
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(height: 1)
+                .padding(.horizontal, 16)
+
+            // Power button (Toggles theme as an interactive mockup action)
+            Button {
+                if model.appearance == .night {
+                    model.setAppearance(.day)
+                } else {
+                    model.setAppearance(.night)
                 }
-                .font(.headline)
-                .frame(width: 138, height: 64)
-                .background(palette.foreground)
-                .foregroundStyle(palette.background)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            } label: {
+                Image(systemName: "power")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Opens the Ask Drive AI Assistant")
+            .padding(.bottom, 16)
         }
+        .frame(width: 80)
+        .background(Color(white: 0.05))
+        .overlay(
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(width: 1),
+            alignment: .trailing
+        )
     }
 
     private func icon(for section: DashboardSection) -> String {
         switch section {
-        case .home: "house.fill"
-        case .map: "map.fill"
-        case .music: "play.rectangle.fill"
-        case .phone: "phone.fill"
-        case .settings: "gearshape.fill"
+        case .home: return "house"
+        case .map: return "location.north.fill"
+        case .music: return "music.note"
+        case .phone: return "phone"
+        case .settings: return "gearshape"
+        }
+    }
+}
+
+struct BottomNavigationBar: View {
+    @ObservedObject var model: DashboardViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            bottomBarButton(for: .home, title: "Home", systemImage: "sofa.fill")
+            bottomBarButton(for: .map, title: "Map", systemImage: "location.fill")
+            bottomBarButton(for: .music, title: "Music", systemImage: "music.note")
+            bottomBarButton(for: .phone, title: "Phone", systemImage: "phone.fill")
+            bottomBarButton(for: .settings, title: "More", systemImage: "circle.grid.2x2.fill")
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private func bottomBarButton(for section: DashboardSection, title: String, systemImage: String) -> some View {
+        let isSelected = model.selectedSection == section
+        Button {
+            model.selectSection(section)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 16))
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .foregroundStyle(isSelected ? .white : .white.opacity(0.6))
+            .background(
+                Capsule()
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color.white.opacity(0.8) : Color.white.opacity(0.2), lineWidth: 1)
+                    .shadow(color: isSelected ? .white.opacity(0.5) : .clear, radius: 4)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct TurnByTurnOverlay: View {
+    let nextInstruction: String
+    let distanceRemaining: Double
+    let currentStreet: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.3))
+                Image(systemName: "arrow.turn.up.right")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .frame(width: 56, height: 56)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(distanceString)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    Text("m")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Text(instructionString)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(streetString)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var distanceString: String {
+        if distanceRemaining > 0 {
+            if distanceRemaining >= 1000 {
+                return String(format: "%.1f km", distanceRemaining / 1000)
+            } else {
+                return "\(Int(distanceRemaining))"
+            }
+        }
+        return "300"
+    }
+
+    private var instructionString: String {
+        if !nextInstruction.isEmpty {
+            return nextInstruction
+        }
+        return "Turn right"
+    }
+
+    private var streetString: String {
+        if !currentStreet.isEmpty {
+            return currentStreet
+        }
+        return "Noida-Greater Noida Expressway"
+    }
+}
+
+struct SpeedometerOverlay: View {
+    let speedKPH: Int
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.85))
+                .frame(width: 65, height: 65)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+
+            VStack(spacing: 0) {
+                Text("\(speedKPH > 0 ? speedKPH : 65)")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("km/h")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+        }
+    }
+}
+
+struct VoiceAssistantWidget: View {
+    @ObservedObject var coordinator: VoiceAssistantCoordinator
+    let onKeyboardTap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        .frame(width: 56, height: 56)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 3)
+                                .blur(radius: 4)
+                        )
+                    
+                    HStack(spacing: 3) {
+                        ForEach(0..<5) { i in
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(Color.white)
+                                .frame(width: 3, height: barHeight(for: i))
+                        }
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Talk to Kalpana")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(stateDescription)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+
+            HStack(spacing: 12) {
+                let isListening = coordinator.state == .listening || coordinator.state == .detectingSpeech
+                Button(action: { coordinator.toggleListening() }) {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(isListening ? .black : .white)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(isListening ? Color.white : Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(isListening ? 0.8 : 0.15), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onKeyboardTap) {
+                    Image(systemName: "keyboard")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { coordinator.cancelListening() }) {
+                    Image(systemName: "square.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var stateDescription: String {
+        switch coordinator.state {
+        case .idle: return "I'm listening..."
+        case .requestingPermission: return "Requesting mic..."
+        case .listening: return "I'm listening..."
+        case .detectingSpeech: return "Listening..."
+        case .transcribing: return "Processing..."
+        case .thinking: return "Thinking..."
+        case .awaitingConfirmation: return "Confirm?"
+        case .speaking: return "Speaking..."
+        case .interrupted: return "Interrupted"
+        case .unavailable: return "Unavailable"
+        case .failed: return "Failed"
+        }
+    }
+
+    private func barHeight(for index: Int) -> CGFloat {
+        let isListening = coordinator.state == .listening || coordinator.state == .detectingSpeech
+        if !isListening {
+            let staticHeights: [CGFloat] = [12, 24, 30, 24, 12]
+            return staticHeights[index]
+        }
+        
+        let level = max(0, coordinator.micLevel + 80)
+        let normalized = CGFloat(level / 80.0)
+        let baseHeight: CGFloat = 8.0
+        let maxAddHeight: CGFloat = 26.0
+        
+        let envelope: [CGFloat] = [0.4, 0.8, 1.0, 0.8, 0.4]
+        return baseHeight + normalized * maxAddHeight * envelope[index]
+    }
+}
+
+struct TripMetricsWidget: View {
+    let activeRoute: RouteSnapshot?
+    let distanceRemaining: Double
+    let navETA: Date
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                Image(systemName: "clock")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(durationString)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(etaString)
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
+            }
+            
+            Divider().background(Color.white.opacity(0.12))
+
+            HStack(spacing: 14) {
+                Image(systemName: "road.lanes")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(distanceRemainingString)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Remaining")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
+            }
+            
+            Divider().background(Color.white.opacity(0.12))
+
+            HStack(spacing: 14) {
+                Image(systemName: "flag")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(destinationString)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Destination")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var durationString: String {
+        if let route = activeRoute {
+            let seconds = route.expectedArrival.timeIntervalSinceNow
+            let minutes = Int(max(0, seconds / 60))
+            if minutes < 60 {
+                return "\(minutes) min"
+            }
+            return "\(minutes / 60) h \(minutes % 60) min"
+        }
+        return "28 min"
+    }
+
+    private var etaString: String {
+        if let route = activeRoute {
+            return route.expectedArrival.formatted(date: .omitted, time: .shortened) + " ETA"
+        }
+        return "12:07 PM ETA"
+    }
+
+    private var distanceRemainingString: String {
+        if distanceRemaining > 0 {
+            if distanceRemaining >= 1000 {
+                return String(format: "%.1f km", distanceRemaining / 1000)
+            } else {
+                return "\(Int(distanceRemaining)) m"
+            }
+        }
+        return "12.4 km"
+    }
+
+    private var destinationString: String {
+        if let route = activeRoute {
+            return route.destination.name
+        }
+        return "NIET"
+    }
+}
+
+struct YouTubeMusicWidget: View {
+    @ObservedObject var model: DashboardViewModel
+    @State private var localElapsed: TimeInterval = 105
+    @State private var timer: Timer? = nil
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                Group {
+                    if !model.media.title.isEmpty {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.blue.opacity(0.15))
+                                .frame(width: 64, height: 64)
+                            Image(systemName: "music.note")
+                                .font(.title)
+                                .foregroundColor(.white)
+                        }
+                    } else {
+                        NightDriveArt()
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(titleString)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(artistString)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineLimit(1)
+                    Text("Playing on YouTube Music")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+
+            VStack(spacing: 4) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.15))
+                            .frame(height: 4)
+                        Capsule()
+                            .fill(Color.white)
+                            .frame(width: geo.size.width * CGFloat(progressPercent), height: 4)
+                    }
+                }
+                .frame(height: 4)
+                .padding(.horizontal, 16)
+
+                HStack {
+                    Text(formatTime(elapsedTime))
+                        .font(.system(size: 10, design: .rounded))
+                        .foregroundColor(.white.opacity(0.5))
+                    Spacer()
+                    Text(formatTime(durationTime))
+                        .font(.system(size: 10, design: .rounded))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .padding(.horizontal, 16)
+            }
+
+            HStack(spacing: 36) {
+                Button(action: {
+                    model.previousTrack()
+                    resetLocalPlaybackState()
+                }) {
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    model.togglePlayback()
+                }) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                            .frame(width: 48, height: 48)
+                        
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    model.nextTrack()
+                    resetLocalPlaybackState()
+                }) {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.bottom, 16)
+        }
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .onAppear {
+            startTimer()
+        }
+        .onDisappear {
+            stopTimer()
+        }
+        .onChange(of: model.media) { _, newMedia in
+            if !newMedia.title.isEmpty {
+                localElapsed = newMedia.elapsed
+            }
+        }
+    }
+
+    private var isPlaying: Bool {
+        if !model.media.title.isEmpty {
+            return model.media.isPlaying
+        }
+        return true
+    }
+
+    private var titleString: String {
+        if !model.media.title.isEmpty {
+            return model.media.title
+        }
+        return "Kesariya"
+    }
+
+    private var artistString: String {
+        if !model.media.title.isEmpty {
+            return model.media.artist
+        }
+        return "Arijit Singh"
+    }
+
+    private var elapsedTime: TimeInterval {
+        if !model.media.title.isEmpty {
+            return model.media.elapsed
+        }
+        return localElapsed
+    }
+
+    private var durationTime: TimeInterval {
+        if !model.media.title.isEmpty && model.media.duration > 0 {
+            return model.media.duration
+        }
+        return 269
+    }
+
+    private var progressPercent: Double {
+        let dur = durationTime
+        guard dur > 0 else { return 0 }
+        return min(1.0, elapsedTime / dur)
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if isPlaying {
+                if model.media.title.isEmpty {
+                    if localElapsed < 269 {
+                        localElapsed += 1
+                    } else {
+                        localElapsed = 0
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func resetLocalPlaybackState() {
+        if model.media.title.isEmpty {
+            localElapsed = 0
+        }
+    }
+}
+
+struct NightDriveArt: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.05, blue: 0.15), Color(red: 0.1, green: 0.05, blue: 0.1)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            GeometryReader { geo in
+                ForEach(0..<15) { i in
+                    Circle()
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: 1.5, height: 1.5)
+                        .position(
+                            x: CGFloat((i * 17) % 64),
+                            y: CGFloat((i * 11) % 40)
+                        )
+                }
+            }
+            
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 40))
+                path.addLine(to: CGPoint(x: 64, y: 40))
+                path.addLine(to: CGPoint(x: 64, y: 64))
+                path.addLine(to: CGPoint(x: 0, y: 64))
+                path.closeSubpath()
+            }
+            .fill(Color(white: 0.08))
+            
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [.purple.opacity(0.4), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: 4)
+                .position(x: 32, y: 40)
+            
+            Path { path in
+                path.move(to: CGPoint(x: 32, y: 40))
+                path.addLine(to: CGPoint(x: 10, y: 64))
+                
+                path.move(to: CGPoint(x: 32, y: 40))
+                path.addLine(to: CGPoint(x: 54, y: 64))
+            }
+            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+            
+            Path { path in
+                path.move(to: CGPoint(x: 32, y: 40))
+                path.addLine(to: CGPoint(x: 32, y: 64))
+            }
+            .stroke(Color.yellow.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+
+            VStack(spacing: 1) {
+                Text("NIGHT")
+                    .font(.system(size: 7, weight: .bold, design: .sansSerif))
+                    .foregroundColor(.white.opacity(0.8))
+                Text("DRIVE")
+                    .font(.system(size: 5, weight: .regular, design: .sansSerif))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .position(x: 32, y: 20)
         }
     }
 }
@@ -252,8 +953,7 @@ private struct LiveMapCard: View {
                         .font(.headline)
                         .padding(.horizontal, 14)
                         .frame(minHeight: 46)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                     Spacer()
                     VStack(spacing: 0) {
                         Text(String(speedKPH))
@@ -262,8 +962,7 @@ private struct LiveMapCard: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(14)
             }
@@ -298,7 +997,7 @@ private struct IndependentMusicSummary: View {
     @ObservedObject var model: DashboardViewModel
 
     var body: some View {
-        MiniPlayerView(model: model, browser: model.youtubeMusicBrowser)
+        MiniPlayerView(model: model)
     }
 }
 
@@ -322,27 +1021,127 @@ private struct NavigationMapSection: View {
     @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
     @State private var showParkingSheet = false
     @State private var showSavedPlaces = false
-    @State private var showTripHistory = false
+    @State private var showAskDrive = false
 
     var body: some View {
-        ZStack(alignment: .top) {
-            // Full-bleed live map
-            mapView
+        HStack(spacing: 16) {
+            // Left: Map Card
+            ZStack(alignment: .topLeading) {
+                Map(position: $position) {
+                    UserAnnotation {
+                        ZStack {
+                            Circle()
+                                .fill(Color.black)
+                                .frame(width: 38, height: 38)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 2)
+                                        .shadow(color: .white.opacity(0.8), radius: 4)
+                                )
+                            Image(systemName: "location.north.fill")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .rotationEffect(.degrees(model.courseDegrees ?? 0))
+                        }
+                    }
 
-            // Overlaid controls (search, nav strip, action bar)
-            VStack(spacing: 0) {
-                searchOverlay
-                Spacer()
-                if let _ = model.activeRoute {
-                    navStrip
+                    if let route = model.mapRoute {
+                        MapPolyline(route.polyline)
+                            .stroke(Color.white, style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
+                    }
+                    
+                    // Parking marker
+                    if let parking = model.parkedLocation {
+                        Annotation("Parked Here", coordinate: CLLocationCoordinate2D(
+                            latitude: parking.coordinate.latitude,
+                            longitude: parking.coordinate.longitude
+                        )) {
+                            ZStack {
+                                Circle().fill(Color.orange).frame(width: 36, height: 36)
+                                Image(systemName: "car.fill").foregroundColor(.white).font(.headline)
+                            }
+                        }
+                    }
                 }
-                actionBar
+                .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
+                .mapControls {
+                    MapCompass()
+                    MapScaleView()
+                }
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+
+                // Navigation TBT and Speedometer overlays
+                HStack(alignment: .top, spacing: 12) {
+                    TurnByTurnOverlay(
+                        nextInstruction: model.navNextInstruction,
+                        distanceRemaining: model.navDistanceRemaining,
+                        currentStreet: model.navCurrentStreet
+                    )
+                    
+                    SpeedometerOverlay(speedKPH: model.speedKPH)
+                }
+                .padding(16)
+                
+                // Floating options menu in top-right
+                VStack {
+                    HStack {
+                        Spacer()
+                        Menu {
+                            Button(action: { showSavedPlaces = true }) {
+                                Label("Saved Places", systemImage: "bookmark.fill")
+                            }
+                            Button(action: { model.showTripHistory = true }) {
+                                Label("Trip History", systemImage: "list.bullet.rectangle")
+                            }
+                            Button(action: {
+                                if model.isTripRecording {
+                                    model.stopTripRecording()
+                                } else {
+                                    model.startTripRecording()
+                                }
+                            }) {
+                                Label(model.isTripRecording ? "Stop Recording" : "Record Trip", systemImage: "record.circle")
+                            }
+                            Button(action: { showParkingSheet = true }) {
+                                Label("Save Parking", systemImage: "car.badge.plus")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundColor(.white.opacity(0.8))
+                                .background(Circle().fill(Color.black.opacity(0.6)))
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(16)
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Right Widget column
+            VStack(spacing: 16) {
+                VoiceAssistantWidget(coordinator: model.voiceAssistant, onKeyboardTap: {
+                    model.voiceAssistant.cancelListening()
+                    showAskDrive = true
+                })
+                
+                TripMetricsWidget(
+                    activeRoute: model.activeRoute,
+                    distanceRemaining: model.navDistanceRemaining,
+                    navETA: model.navETA
+                )
+                
+                YouTubeMusicWidget(model: model)
+            }
+            .frame(width: 380)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.8), lineWidth: 2))
+        .sheet(isPresented: $showAskDrive) {
+            AskDriveView(model: model)
+        }
         // Parking auto-prompt
         .alert("Save Parking Location?", isPresented: Binding(
             get: { model.showsParkingPrompt },
@@ -362,404 +1161,8 @@ private struct NavigationMapSection: View {
             SavedPlacesSheet(model: model)
         }
         // Trip history sheet
-        .sheet(isPresented: $showTripHistory) {
+        .sheet(isPresented: $model.showTripHistory) {
             TripHistorySheet(model: model)
-        }
-    }
-
-    // MARK: Map
-    @ViewBuilder private var mapView: some View {
-        Map(position: $position) {
-            UserAnnotation()
-            // Active route polyline
-            if let route = model.mapRoute {
-                MapPolyline(route.polyline)
-                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
-            }
-            // Alternative route polylines
-            ForEach(Array(model.alternativeRoutes.enumerated()), id: \.offset) { item in
-                MapPolyline(item.element.polyline)
-                    .stroke(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-            }
-            // Parking marker
-            if let parking = model.parkedLocation {
-                Annotation("Parked Here", coordinate: CLLocationCoordinate2D(
-                    latitude: parking.coordinate.latitude,
-                    longitude: parking.coordinate.longitude
-                )) {
-                    ZStack {
-                        Circle().fill(Color.orange).frame(width: 36, height: 36)
-                        Image(systemName: "car.fill").foregroundColor(.white).font(.headline)
-                    }
-                }
-            }
-        }
-        .mapStyle(currentMapStyle)
-        .mapControls {
-            MapCompass()
-            MapScaleView()
-            MapUserLocationButton()
-        }
-        .ignoresSafeArea()
-    }
-
-    private var currentMapStyle: MapStyle {
-        switch model.mapStyle {
-        case .standard:
-            return .standard(elevation: .realistic, pointsOfInterest: .all)
-        case .satellite:
-            return .imagery(elevation: .realistic)
-        case .hybrid:
-            return .hybrid(elevation: .realistic, pointsOfInterest: .all)
-        }
-    }
-
-    // MARK: Search Overlay
-    @ViewBuilder private var searchOverlay: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                // Search bar
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search destination, landmark, or address", text: $model.destinationQuery)
-                        .textFieldStyle(.plain)
-                        .font(.headline)
-                        .submitLabel(.search)
-                        .onSubmit { model.searchDestinations() }
-                    if !model.destinationQuery.isEmpty {
-                        Button(action: {
-                            model.destinationQuery = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                        }.buttonStyle(.plain)
-                    }
-                    Button {
-                        model.searchDestinations()
-                    } label: {
-                        Group {
-                            if model.isSearching {
-                                ProgressView().tint(.primary)
-                            } else {
-                                Image(systemName: "magnifyingglass").font(.title3.bold())
-                            }
-                        }
-                        .frame(width: 42, height: 42)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(model.destinationQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                // Map style toggle
-                Menu {
-                    ForEach(DriveMapStyle.allCases) { style in
-                        Button(action: { model.mapStyle = style }) {
-                            Label(style.rawValue, systemImage: style.icon)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "map")
-                        .font(.headline)
-                        .frame(width: 44, height: 44)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-            }
-
-            // Autocomplete dropdown
-            if !model.searchSuggestions.isEmpty && !model.destinationQuery.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(model.searchSuggestions.prefix(5), id: \.self) { suggestion in
-                        Button {
-                            model.destinationQuery = suggestion
-                            model.searchDestinations()
-                        } label: {
-                            HStack {
-                                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).frame(width: 24)
-                                Text(suggestion).font(.subheadline).lineLimit(1)
-                                Spacer()
-                            }
-                            .frame(minHeight: 46)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        Divider()
-                    }
-                }
-                .padding(.horizontal, 12)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-
-            // Search results
-            if !model.searchResults.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(Array(model.searchResults.prefix(8))) { result in
-                        Button {
-                            model.startNavigation(to: result)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "mappin.circle.fill").foregroundStyle(.blue).font(.title3)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(result.name).font(.headline).lineLimit(1)
-                                    Text(result.address).font(.caption).lineLimit(1).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill").foregroundStyle(.secondary)
-                            }
-                            .frame(minHeight: 58)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        Divider()
-                    }
-                }
-                .padding(.horizontal, 14)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-
-            // Saved place shortcuts (visible when search is empty)
-            if model.destinationQuery.isEmpty && model.searchResults.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(model.savedPlaces.prefix(6)) { place in
-                            Button {
-                                model.startNavigation(to: Destination(
-                                    name: place.name,
-                                    address: place.address,
-                                    coordinate: place.coordinate,
-                                    kind: .favourite
-                                ))
-                            } label: {
-                                Label(place.name, systemImage: savedPlaceIcon(place.label))
-                                    .font(.subheadline.bold())
-                                    .padding(.horizontal, 12)
-                                    .frame(height: 38)
-                                    .background(.regularMaterial)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        if !model.recentDestinations.isEmpty {
-                            ForEach(model.recentDestinations.prefix(3)) { dest in
-                                Button {
-                                    model.startNavigation(to: dest)
-                                } label: {
-                                    Label(dest.name, systemImage: "clock")
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 38)
-                                        .background(.regularMaterial)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: Nav Strip
-    @ViewBuilder private var navStrip: some View {
-        if let _ = model.activeRoute {
-            VStack(spacing: 8) {
-                // Off-route warning
-                if model.navIsOffRoute {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        Text("Off route — recalculating…").font(.headline.bold())
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 44)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                // Main nav strip
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if !model.navNextInstruction.isEmpty {
-                            Text(model.navNextInstruction)
-                                .font(.title2.bold())
-                                .lineLimit(2)
-                        } else {
-                            Text(model.activeRoute?.nextInstruction ?? "")
-                                .font(.title2.bold())
-                                .lineLimit(2)
-                        }
-                        HStack(spacing: 12) {
-                            Label(distanceString(model.navDistanceRemaining > 0 ? model.navDistanceRemaining : (model.activeRoute?.distanceRemainingMetres ?? 0)), systemImage: "road.lanes")
-                            Label("ETA \((model.navETA > Date.distantPast ? model.navETA : (model.activeRoute?.expectedArrival ?? Date())).formatted(date: .omitted, time: .shortened))", systemImage: "clock")
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    // Progress ring
-                    ZStack {
-                        Circle().stroke(Color.secondary.opacity(0.3), lineWidth: 5)
-                        Circle()
-                            .trim(from: 0, to: CGFloat(model.navProgressPercent / 100))
-                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                        Text("\(Int(model.navProgressPercent))%")
-                            .font(.caption2.bold())
-                    }
-                    .frame(width: 52, height: 52)
-
-                    Button("Cancel") { model.cancelNavigation() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                        .controlSize(.regular)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                // Alternative routes strip
-                if !model.alternativeRoutes.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            Text("Alternatives:").font(.caption.bold()).foregroundStyle(.secondary)
-                            ForEach(Array(model.alternativeRoutes.prefix(3).enumerated()), id: \.offset) { i, route in
-                                Button {
-                                    model.selectAlternativeRoute(route)
-                                } label: {
-                                    VStack(spacing: 2) {
-                                        Text(distanceString(route.distance)).font(.caption.bold())
-                                        Text(durationString(route.expectedTravelTime)).font(.caption2).foregroundStyle(.secondary)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .frame(height: 40)
-                                    .background(.regularMaterial)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: Action Bar
-    private var actionBar: some View {
-        HStack(spacing: 10) {
-            // Trip recording
-            Button {
-                if model.isTripRecording {
-                    model.stopTripRecording()
-                } else {
-                    model.startTripRecording()
-                }
-            } label: {
-                Label(
-                    model.isTripRecording ? "Stop Trip" : "Record Trip",
-                    systemImage: model.isTripRecording ? "stop.circle.fill" : "record.circle"
-                )
-                .font(.subheadline.bold())
-                .padding(.horizontal, 14)
-                .frame(height: 42)
-                .background(model.isTripRecording ? Color.red.opacity(0.85) : Color.primary.opacity(0.12))
-                .foregroundColor(model.isTripRecording ? .white : .primary)
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-
-            // Trip history
-            Button {
-                showTripHistory = true
-            } label: {
-                Label("Trips (\(model.trips.count))", systemImage: "list.bullet.rectangle")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 14)
-                    .frame(height: 42)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            // Parking
-            if let _ = model.parkedLocation {
-                Button {
-                    model.navigateToParking()
-                } label: {
-                    Label("Navigate to Car", systemImage: "car.fill")
-                        .font(.subheadline.bold())
-                        .padding(.horizontal, 14)
-                        .frame(height: 42)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-                Button {
-                    model.clearParking()
-                } label: {
-                    Image(systemName: "car.badge.minus")
-                        .font(.headline)
-                        .frame(width: 42, height: 42)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    showParkingSheet = true
-                } label: {
-                    Label("Save Parking", systemImage: "car.badge.plus")
-                        .font(.subheadline.bold())
-                        .padding(.horizontal, 14)
-                        .frame(height: 42)
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-            }
-
-            // Saved places panel
-            Button {
-                showSavedPlaces = true
-            } label: {
-                Label("Saved", systemImage: "bookmark.fill")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 14)
-                    .frame(height: 42)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func distanceString(_ metres: Double) -> String {
-        if metres >= 1_000 { return String(format: "%.1f km", metres / 1_000) }
-        return "\(Int(metres.rounded())) m"
-    }
-
-    private func durationString(_ seconds: TimeInterval) -> String {
-        let minutes = Int(seconds / 60)
-        if minutes < 60 { return "\(minutes) min" }
-        return "\(minutes / 60)h \(minutes % 60)m"
-    }
-
-    private func savedPlaceIcon(_ label: SavedPlaceLabel) -> String {
-        switch label {
-        case .home: return "house.fill"
-        case .work: return "briefcase.fill"
-        case .college: return "building.columns.fill"
-        case .custom: return "bookmark.fill"
         }
     }
 }
@@ -1356,6 +1759,8 @@ private struct PhoneSection: View {
 private struct SettingsSection: View {
     @ObservedObject var model: DashboardViewModel
     @State private var newAvoidRoad = ""
+    @State private var apiKeyInput = KeychainHelper.shared.loadKeychainApiKey() ?? ""
+    @State private var apiKeySaveStatus = ""
 
     var body: some View {
         DriveCard(insets: 0) {
@@ -1446,6 +1851,27 @@ private struct SettingsSection: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
+                    // Voice Assistant Language
+                    settingsGroup(title: "Voice Assistant Language", icon: "bubble.left.and.exclamationmark.bubble.right.fill") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Picker("Language", selection: Binding(
+                                get: { model.voiceAssistant.speechRecognition.selectedLanguage },
+                                set: { model.voiceAssistant.speechRecognition.selectedLanguage = $0 }
+                            )) {
+                                ForEach(SpeechRecognitionService.LanguageMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            
+                            if model.voiceAssistant.speechRecognition.selectedLanguage == .hinglish {
+                                Text("Hinglish mode is experimental. Accent recognition and command accuracy may vary.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                    }
+
                     // Siri
                     settingsGroup(title: "Siri Commands", icon: "waveform.circle") {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1454,6 +1880,76 @@ private struct SettingsSection: View {
                             Text("• \"Search for India Gate in Kalpana Drive\"")
                             Text("Activate Siri by voice or the iPad's top button. Siri appears as a system overlay.")
                                 .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // AI Assistant Provider (NVIDIA NIM)
+                    settingsGroup(title: "AI Assistant Provider (NVIDIA NIM)", icon: "key.fill") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Status:")
+                                    .font(.subheadline)
+                                if KeychainHelper.shared.localOnlyMode {
+                                    Text("Local-only")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.orange)
+                                } else if let key = KeychainHelper.shared.loadKeychainApiKey(), !key.isEmpty {
+                                    Text("Active (Key Saved)")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Text("Not Configured")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            
+                            SecureField("Enter NVIDIA API Key", text: $apiKeyInput)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            HStack(spacing: 12) {
+                                Button("Save Key") {
+                                    if KeychainHelper.shared.saveApiKey(apiKeyInput) {
+                                        apiKeySaveStatus = "Key saved successfully."
+                                    } else {
+                                        apiKeySaveStatus = "Failed to save key."
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+
+                                Button("Delete Key", role: .destructive) {
+                                    KeychainHelper.shared.deleteApiKey()
+                                    apiKeyInput = ""
+                                    apiKeySaveStatus = "Key deleted."
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(apiKeyInput.isEmpty)
+                                
+                                Button("Test Connection") {
+                                    apiKeySaveStatus = "Testing connection..."
+                                    Task {
+                                        let result = await model.aiCoordinator.testConnection(with: apiKeyInput)
+                                        apiKeySaveStatus = result.message
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(apiKeyInput.isEmpty)
+                            }
+                            
+                            Toggle("Force Local-only Mode", isOn: Binding(
+                                get: { KeychainHelper.shared.localOnlyMode },
+                                set: { KeychainHelper.shared.localOnlyMode = $0 }
+                            ))
+                            
+                            if !apiKeySaveStatus.isEmpty {
+                                Text(apiKeySaveStatus)
+                                    .font(.caption)
+                                    .foregroundStyle(apiKeySaveStatus.contains("succeeded") || apiKeySaveStatus.contains("success") ? .green : .red)
+                            }
+                            
+                            Text("The API key is securely saved to the iOS Keychain and never printed or logged. Treat the previously exposed key as compromised. Revoke it on the NVIDIA developer portal.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
 
@@ -1505,16 +2001,86 @@ struct DriveCard<Content: View>: View {
         content
             .padding(insets)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.07))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.8), lineWidth: 2))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
 struct DrivePalette {
     let appearance: DriveAppearance
-    var background: Color { appearance == .day ? .white : .black }
+    var background: Color { appearance == .day ? Color(hue: 0.62, saturation: 0.05, brightness: 0.97) : Color(hue: 0.62, saturation: 0.15, brightness: 0.06) }
     var foreground: Color { appearance == .day ? .black : .white }
     var card: Color { appearance == .day ? Color(white: 0.92) : Color(white: 0.10) }
     var border: Color { foreground.opacity(0.75) }
+}
+
+// MARK: - Liquid Glass Background
+
+/// Animated gradient mesh background that shifts through aurora-like hues.
+struct LiquidGlassBackground: View {
+    let appearance: DriveAppearance
+    @State private var phase: Double = 0
+
+    private var isDark: Bool { appearance == .night }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1/30)) { ctx in
+            MeshGradient(
+                width: 3,
+                height: 3,
+                points: animatedPoints(at: ctx.date.timeIntervalSinceReferenceDate),
+                colors: animatedColors(at: ctx.date.timeIntervalSinceReferenceDate)
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private func animatedPoints(at t: Double) -> [SIMD2<Float>] {
+        let s = Float(sin(t * 0.25)) * 0.08
+        let c = Float(cos(t * 0.18)) * 0.06
+        return [
+            [0, 0],       [0.5 + s, 0],    [1, 0],
+            [0, 0.5 + c], [0.5, 0.5],      [1, 0.5 + s],
+            [0, 1],       [0.5 - c, 1],    [1, 1]
+        ]
+    }
+
+    private func animatedColors(at t: Double) -> [Color] {
+        let pulse = (sin(t * 0.3) + 1) / 2  // 0…1
+        if isDark {
+            // Deep saturated colours — glass needs vivid background to look translucent
+            return [
+                Color(hue: 0.62, saturation: 0.80, brightness: 0.28 + pulse * 0.08),
+                Color(hue: 0.72, saturation: 0.75, brightness: 0.35 + pulse * 0.10),
+                Color(hue: 0.55, saturation: 0.70, brightness: 0.22),
+                Color(hue: 0.65, saturation: 0.85, brightness: 0.30),
+                Color(hue: 0.80, saturation: 0.60, brightness: 0.38),
+                Color(hue: 0.58, saturation: 0.75, brightness: 0.25),
+                Color(hue: 0.75, saturation: 0.80, brightness: 0.20 + pulse * 0.06),
+                Color(hue: 0.63, saturation: 0.70, brightness: 0.32),
+                Color(hue: 0.68, saturation: 0.78, brightness: 0.28)
+            ]
+        } else {
+            return [
+                Color(hue: 0.57, saturation: 0.45, brightness: 0.92 - pulse * 0.05),
+                Color(hue: 0.62, saturation: 0.50, brightness: 0.95),
+                Color(hue: 0.52, saturation: 0.40, brightness: 0.90),
+                Color(hue: 0.60, saturation: 0.48, brightness: 0.88),
+                Color(hue: 0.68, saturation: 0.35, brightness: 0.96),
+                Color(hue: 0.55, saturation: 0.42, brightness: 0.93),
+                Color(hue: 0.63, saturation: 0.50, brightness: 0.89 + pulse * 0.04),
+                Color(hue: 0.58, saturation: 0.38, brightness: 0.94),
+                Color(hue: 0.70, saturation: 0.45, brightness: 0.91)
+            ]
+        }
+    }
+}
+
+extension View {
+    func sectionVisibility(isVisible: Bool) -> some View {
+        self
+            .opacity(isVisible ? 1 : 0)
+            .zIndex(isVisible ? 1 : 0)
+            .allowsHitTesting(isVisible)
+            .accessibilityHidden(!isVisible)
+    }
 }

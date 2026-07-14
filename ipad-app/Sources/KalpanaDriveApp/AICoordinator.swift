@@ -2,17 +2,84 @@ import Foundation
 import CoreLocation
 import KalpanaDriveCore
 
+// --- Phase 13 Typed Structures ---
+struct AssistantRequest: Codable {
+    let query: String
+    let context: AssistantContext
+}
+
+struct AssistantContext: Codable {
+    let gpsAccuracy: String
+    let currentSpeed: String
+    let activeDestination: String
+    let savedPlaces: [String]
+}
+
+struct AssistantToolDefinition: Codable {
+    let name: String
+    let description: String
+}
+
+enum AssistantToolName: String, Codable, CaseIterable {
+    case navigate
+    case search
+    case call
+    case savePlace = "save_place"
+    case showParking = "show_parking"
+    case showTrips = "show_trips"
+    case avoidRoad = "avoid_road"
+    case preferRoad = "prefer_road"
+    case none
+}
+
+struct AssistantToolCall: Codable {
+    let name: AssistantToolName
+    let parameters: AssistantToolParameters
+}
+
+struct AssistantToolParameters: Codable {
+    let destination: String?
+    let category: String?
+    let bias: String?
+    let name: String?
+    let number: String?
+    let label: String?
+    let roadName: String?
+}
+
+enum AssistantToolStatus: String, Codable {
+    case awaitingConfirmation
+    case started
+    case completed
+    case unavailable
+    case failed
+}
+
+struct AssistantToolResult: Codable {
+    let status: AssistantToolStatus
+    let userFacingMessage: String
+    let technicalReason: String?
+    let resultingEntityId: String?
+}
+
+struct AssistantModelResponse: Codable {
+    let explanation: String
+    let toolCall: AssistantToolCall?
+    let needsConfirmation: Bool?
+}
+
+struct AssistantPendingAction {
+    let title: String
+    let message: String
+    let onConfirm: () -> Void
+    let onReject: () -> Void
+}
+
 @MainActor
 final class AICoordinator: ObservableObject {
     @Published var conversationHistory: [ChatMessage] = []
     @Published var isProcessing = false
-    @Published var pendingAction: PendingAction?
-
-    private var apiKey: String {
-        KeychainHelper.shared.loadApiKey() ?? ""
-    }
-    private let endpoint = "https://integrate.api.nvidia.com/v1/chat/completions"
-    private let modelName = "meta/llama-3.1-8b-instruct"
+    @Published var pendingAction: AssistantPendingAction?
 
     struct ChatMessage: Identifiable, Codable {
         let id: UUID
@@ -28,31 +95,47 @@ final class AICoordinator: ObservableObject {
         }
     }
 
-    struct PendingAction: Identifiable {
-        let id: UUID
-        let title: String
-        let message: String
-        let onConfirm: () -> Void
-
-        init(title: String, message: String, onConfirm: @escaping () -> Void) {
-            self.id = UUID()
-            self.title = title
-            self.message = message
-            self.onConfirm = onConfirm
-        }
+    struct ConversationalContext {
+        var lastMatchedContacts: [KalpanaContact] = []
+        var lastMatchedSearchPlaces: [String] = []
     }
+
+    var conversationalContext = ConversationalContext()
+
+    private var apiKey: String {
+        KeychainHelper.shared.loadApiKey() ?? ""
+    }
+    private let endpoint = "https://integrate.api.nvidia.com/v1/chat/completions"
+    private let modelName = "meta/llama-3.1-8b-instruct"
 
     func clearHistory() {
         conversationHistory = []
         pendingAction = nil
+        conversationalContext = ConversationalContext()
     }
 
     func processUserRequest(_ query: String, viewModel: DashboardViewModel) async {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        _ = await processQuery(query, viewModel: viewModel, isSpoken: false)
+    }
 
-        conversationHistory.append(ChatMessage(role: "user", content: query))
+    func processQuery(_ query: String, viewModel: DashboardViewModel, isSpoken: Bool) async -> String {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+
+        if !isSpoken {
+            conversationHistory.append(ChatMessage(role: "user", content: query))
+        }
         isProcessing = true
         defer { isProcessing = false }
+
+        // Check if API key is not configured or in localOnlyMode
+        if KeychainHelper.shared.localOnlyMode || apiKey.isEmpty {
+            let response = "AI provider not configured — local commands remain available."
+            if !isSpoken {
+                conversationHistory.append(ChatMessage(role: "assistant", content: response))
+            }
+            let fallbackResult = localFallbackParser(query, viewModel: viewModel)
+            return fallbackResult.isEmpty ? response : fallbackResult
+        }
 
         // Local state representation to provide context to the LLM
         let gpsContext = viewModel.locationAccuracy
@@ -119,17 +202,18 @@ final class AICoordinator: ObservableObject {
         ]
 
         guard let httpBody = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Error preparing coordinator request."))
-            return
+            let errorMsg = "Error preparing coordinator request."
+            conversationHistory.append(ChatMessage(role: "assistant", content: errorMsg))
+            return errorMsg
         }
         request.httpBody = httpBody
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                conversationHistory.append(ChatMessage(role: "assistant", content: "NVIDIA API request failed. Using local deterministic fallback parser."))
-                localFallbackParser(query, viewModel: viewModel)
-                return
+                let fallbackMsg = "NVIDIA API request failed. Using local deterministic fallback parser."
+                conversationHistory.append(ChatMessage(role: "assistant", content: fallbackMsg))
+                return localFallbackParser(query, viewModel: viewModel)
             }
 
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -137,20 +221,20 @@ final class AICoordinator: ObservableObject {
                   let firstChoice = choices.first,
                   let message = firstChoice["message"] as? [String: Any],
                   let content = message["content"] as? String else {
-                conversationHistory.append(ChatMessage(role: "assistant", content: "Error decoding coordinator response. Using local parser."))
-                localFallbackParser(query, viewModel: viewModel)
-                return
+                let errDecodeMsg = "Error decoding coordinator response. Using local parser."
+                conversationHistory.append(ChatMessage(role: "assistant", content: errDecodeMsg))
+                return localFallbackParser(query, viewModel: viewModel)
             }
 
-            parseAndExecute(content, viewModel: viewModel)
+            return parseAndExecute(content, viewModel: viewModel)
         } catch {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Connection timeout. Using local fallback parser."))
-            localFallbackParser(query, viewModel: viewModel)
+            let timeoutMsg = "Connection timeout. Using local fallback parser."
+            conversationHistory.append(ChatMessage(role: "assistant", content: timeoutMsg))
+            return localFallbackParser(query, viewModel: viewModel)
         }
     }
 
-    private func parseAndExecute(_ content: String, viewModel: DashboardViewModel) {
-        // Strip markdown backticks if returned by the LLM
+    private func parseAndExecute(_ content: String, viewModel: DashboardViewModel) -> String {
         var cleanContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanContent.hasPrefix("```") {
             cleanContent = cleanContent.components(separatedBy: "\n")
@@ -159,139 +243,168 @@ final class AICoordinator: ObservableObject {
         }
 
         guard let data = cleanContent.data(using: .utf8),
-              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let explanation = result["explanation"] as? String else {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Could not parse structured intent. Here is the response: " + content))
-            return
+              let modelResponse = try? JSONDecoder().decode(AssistantModelResponse.self, from: data) else {
+            let errText = "Could not parse structured intent: " + content
+            conversationHistory.append(ChatMessage(role: "assistant", content: errText))
+            return errText
         }
 
-        conversationHistory.append(ChatMessage(role: "assistant", content: explanation))
+        conversationHistory.append(ChatMessage(role: "assistant", content: modelResponse.explanation))
 
-        guard let toolCall = result["toolCall"] as? [String: Any],
-              let toolName = toolCall["name"] as? String,
-              toolName != "none",
-              let params = toolCall["parameters"] as? [String: Any] else {
-            return
+        if let tool = modelResponse.toolCall {
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: tool) { [weak self] confirmMsg, confirmAction in
+                self?.pendingAction = AssistantPendingAction(
+                    title: "Confirm Action",
+                    message: confirmMsg,
+                    onConfirm: confirmAction,
+                    onReject: {}
+                )
+            }
+            return result.userFacingMessage
         }
 
-        let needsConfirmation = result["needsConfirmation"] as? Bool ?? false
-
-        executeTool(name: toolName, parameters: params, needsConfirmation: needsConfirmation, viewModel: viewModel)
+        return modelResponse.explanation
     }
 
-    private func executeTool(name: String, parameters: [String: Any], needsConfirmation: Bool, viewModel: DashboardViewModel) {
-        switch name {
-        case "navigate":
-            guard let dest = parameters["destination"] as? String else { return }
-            let action = {
-                viewModel.destinationQuery = dest
-                viewModel.searchDestinations()
-                viewModel.selectSection(.map)
-            }
-            if needsConfirmation {
-                pendingAction = PendingAction(title: "Confirm Route Change", message: "Do you want to navigate to \(dest)?", onConfirm: action)
-            } else {
-                action()
-            }
-        case "search":
-            guard let category = parameters["category"] as? String else { return }
-            viewModel.destinationQuery = category
-            viewModel.searchDestinations()
-            viewModel.selectSection(.map)
-        case "call":
-            guard let contactName = parameters["name"] as? String else { return }
-            let number = parameters["number"] as? String
-            
-            // Search locally for the contact matching name
-            if let matched = viewModel.nativeContacts.first(where: { $0.displayName.localizedCaseInsensitiveContains(contactName) }),
-               let phone = matched.phoneNumbers.first?.number {
-                let action = {
-                    viewModel.call(number: phone, contactId: matched.id)
-                }
-                pendingAction = PendingAction(title: "Confirm Call", message: "Call \(matched.displayName) (\(phone))?", onConfirm: action)
-            } else if let number {
-                let action = {
-                    viewModel.call(number: number, contactId: nil)
-                }
-                pendingAction = PendingAction(title: "Confirm Call", message: "Call \(contactName) at \(number)?", onConfirm: action)
-            } else {
-                conversationHistory.append(ChatMessage(role: "assistant", content: "I couldn't find a phone number for \(contactName). Please provide a number or check your contacts list."))
-            }
-        case "save_place":
-            guard let name = parameters["name"] as? String,
-                  let labelStr = parameters["label"] as? String,
-                  let coord = viewModel.currentCoordinate else { return }
-            
-            let label: SavedPlaceLabel = switch labelStr {
-            case "home": .home
-            case "work": .work
-            case "college": .college
-            default: .custom
-            }
-            
-            let action = {
-                viewModel.savePlace(name: name, address: "Current Location", coordinate: coord, label: label)
-            }
-            pendingAction = PendingAction(title: "Save Place", message: "Save your current location as \(name) (\(labelStr))?", onConfirm: action)
-        case "show_parking":
-            viewModel.navigateToParking()
-            viewModel.selectSection(.map)
-        case "show_trips":
-            viewModel.selectSection(.map)
-        case "avoid_road":
-            guard let roadName = parameters["roadName"] as? String else { return }
-            let action = {
-                viewModel.avoidRoad(roadName)
-            }
-            pendingAction = PendingAction(title: "Avoid Road", message: "Avoid \(roadName) in route intelligence planning?", onConfirm: action)
-        case "prefer_road":
-            guard let roadName = parameters["roadName"] as? String else { return }
-            let action = {
-                viewModel.preferRoad(roadName)
-            }
-            pendingAction = PendingAction(title: "Prefer Road", message: "Prefer \(roadName) in route intelligence planning?", onConfirm: action)
-        default:
-            break
-        }
-    }
-
-    private func localFallbackParser(_ query: String, viewModel: DashboardViewModel) {
+    private func localFallbackParser(_ query: String, viewModel: DashboardViewModel) -> String {
         let command = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
+        // Conversational Context follow-up handling
+        if command.contains("use the first") || command.contains("use the second") || command.contains("call the first") || command.contains("call the second") {
+            let isSecond = command.contains("second")
+            let index = isSecond ? 1 : 0
+            if !conversationalContext.lastMatchedContacts.isEmpty {
+                let contacts = conversationalContext.lastMatchedContacts
+                if index < contacts.count {
+                    let contact = contacts[index]
+                    let number = contact.phoneNumbers.first?.number ?? ""
+                    let destName = contact.displayName
+                    let action = { [weak viewModel] in
+                        guard let viewModel = viewModel else { return }
+                        viewModel.call(number: number, contactId: contact.id)
+                    }
+                    self.pendingAction = AssistantPendingAction(
+                        title: "Confirm Call",
+                        message: "Opening phone dialer to call \(destName) at \(number)?",
+                        onConfirm: action,
+                        onReject: {}
+                    )
+                    let msg = "Confirm call to \(destName)?"
+                    conversationHistory.append(ChatMessage(role: "assistant", content: msg))
+                    return msg
+                }
+            }
+        }
+
         if command.contains("take me to") || command.contains("navigate to") || command.contains("go to") {
             let dest = query.replacingOccurrences(of: "take me to", with: "", options: .caseInsensitive, range: nil)
                 .replacingOccurrences(of: "navigate to", with: "", options: .caseInsensitive, range: nil)
                 .replacingOccurrences(of: "go to", with: "", options: .caseInsensitive, range: nil)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Navigating to \(dest)…"))
-            viewModel.destinationQuery = dest
-            viewModel.searchDestinations()
-            viewModel.selectSection(.map)
+
+            let toolCall = AssistantToolCall(name: .navigate, parameters: AssistantToolParameters(destination: dest, category: nil, bias: nil, name: nil, number: nil, label: nil, roadName: nil))
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: toolCall) { [weak self] confirmMsg, confirmAction in
+                self?.pendingAction = AssistantPendingAction(
+                    title: "Confirm Route Change",
+                    message: confirmMsg,
+                    onConfirm: confirmAction,
+                    onReject: {}
+                )
+            }
+            conversationHistory.append(ChatMessage(role: "assistant", content: result.userFacingMessage))
+            return result.userFacingMessage
+
         } else if command.contains("call ") {
             let contactName = query.replacingOccurrences(of: "call", with: "", options: .caseInsensitive, range: nil)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if let matched = viewModel.nativeContacts.first(where: { $0.displayName.localizedCaseInsensitiveContains(contactName) }),
-               let phone = matched.phoneNumbers.first?.number {
-                let action = {
-                    viewModel.call(number: phone, contactId: matched.id)
-                }
-                pendingAction = PendingAction(title: "Confirm Call", message: "Call \(matched.displayName) (\(phone))?", onConfirm: action)
-                conversationHistory.append(ChatMessage(role: "assistant", content: "Preparing call to \(matched.displayName)…"))
-            } else {
-                conversationHistory.append(ChatMessage(role: "assistant", content: "I couldn't find \(contactName) in your native iPad contacts directory."))
+
+            let toolCall = AssistantToolCall(name: .call, parameters: AssistantToolParameters(destination: nil, category: nil, bias: nil, name: contactName, number: nil, label: nil, roadName: nil))
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: toolCall) { [weak self] confirmMsg, confirmAction in
+                self?.pendingAction = AssistantPendingAction(
+                    title: "Confirm Call",
+                    message: confirmMsg,
+                    onConfirm: confirmAction,
+                    onReject: {}
+                )
             }
+            conversationHistory.append(ChatMessage(role: "assistant", content: result.userFacingMessage))
+            return result.userFacingMessage
+
         } else if command.contains("cng") || command.contains("c.n.g") {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Searching for CNG fuel stations nearby…"))
-            viewModel.destinationQuery = "CNG"
-            viewModel.searchDestinations()
-            viewModel.selectSection(.map)
+            let toolCall = AssistantToolCall(name: .search, parameters: AssistantToolParameters(destination: nil, category: "CNG", bias: nil, name: nil, number: nil, label: nil, roadName: nil))
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: toolCall) { _, _ in }
+            conversationHistory.append(ChatMessage(role: "assistant", content: result.userFacingMessage))
+            return result.userFacingMessage
+
         } else if command.contains("parking") {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "Showing parking location details…"))
-            viewModel.selectSection(.map)
+            let toolCall = AssistantToolCall(name: .showParking, parameters: AssistantToolParameters(destination: nil, category: nil, bias: nil, name: nil, number: nil, label: nil, roadName: nil))
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: toolCall) { _, _ in }
+            conversationHistory.append(ChatMessage(role: "assistant", content: result.userFacingMessage))
+            return result.userFacingMessage
+
+        } else if command.contains("trip") {
+            let toolCall = AssistantToolCall(name: .showTrips, parameters: AssistantToolParameters(destination: nil, category: nil, bias: nil, name: nil, number: nil, label: nil, roadName: nil))
+            let executor = AssistantToolExecutor(viewModel: viewModel)
+            let result = executor.execute(toolCall: toolCall) { _, _ in }
+            conversationHistory.append(ChatMessage(role: "assistant", content: result.userFacingMessage))
+            return result.userFacingMessage
+
         } else {
-            conversationHistory.append(ChatMessage(role: "assistant", content: "I parsed your request: \"\(query)\". However, I need configuration to execute complex planning tasks. Try commands like 'take me to [destination]' or 'call [contact name]'."))
+            let fallbackText = "I parsed your request: \"\(query)\". However, I need configuration to execute complex planning tasks. Try commands like 'take me to [destination]' or 'call [contact name]'."
+            conversationHistory.append(ChatMessage(role: "assistant", content: fallbackText))
+            return fallbackText
+        }
+    }
+
+    func confirmAction() {
+        pendingAction?.onConfirm()
+        pendingAction = nil
+    }
+
+    func rejectAction() {
+        pendingAction?.onReject()
+        pendingAction = nil
+    }
+
+    func testConnection(with key: String) async -> (success: Bool, message: String) {
+        guard !key.isEmpty else {
+            return (false, "Key cannot be empty.")
+        }
+        var request = URLRequest(url: URL(string: endpoint)!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let messages = [
+            ["role": "user", "content": "hello"]
+        ]
+        let requestBody: [String: Any] = [
+            "model": modelName,
+            "messages": messages,
+            "max_tokens": 5
+        ]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            return (false, "Error preparing test request.")
+        }
+        request.httpBody = httpBody
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    return (true, "Connection test succeeded!")
+                } else {
+                    return (false, "Test failed. Status code: \(httpResponse.statusCode)")
+                }
+            }
+            return (false, "Invalid response type.")
+        } catch {
+            return (false, "Connection error: \(error.localizedDescription)")
         }
     }
 }

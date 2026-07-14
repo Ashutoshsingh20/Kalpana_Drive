@@ -9,69 +9,148 @@ final class AssistantToolExecutor {
         self.viewModel = viewModel
     }
 
-    func execute(toolCall: AssistantToolCall, onRequireConfirmation: @escaping (String, @escaping () -> Void) -> Void) -> String {
-        guard let toolType = ToolType(rawValue: toolCall.name) else {
-            return "Tool \(toolCall.name) is unknown or not supported."
-        }
-
+    func execute(
+        toolCall: AssistantToolCall,
+        onRequireConfirmation: @escaping (String, @escaping () -> Void) -> Void
+    ) -> AssistantToolResult {
+        let toolName = toolCall.name
         let params = toolCall.parameters
 
-        switch toolType {
+        switch toolName {
         case .navigate:
             guard let dest = params.destination, !dest.isEmpty else {
-                return "Destination name is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Destination name is missing.",
+                    technicalReason: "destination parameter is null or empty",
+                    resultingEntityId: nil
+                )
             }
-            let action = {
+            
+            // Check if confirmation is required
+            let action = { [weak self] in
+                guard let self = self else { return }
                 self.viewModel.destinationQuery = dest
                 self.viewModel.searchDestinations()
                 self.viewModel.selectSection(.map)
             }
-            onRequireConfirmation("Start navigation to \(dest)?", action)
-            return "Preparing route to \(dest)."
+            
+            onRequireConfirmation("Start route search to \(dest)?", action)
+            return AssistantToolResult(
+                status: .awaitingConfirmation,
+                userFacingMessage: "Calculate route to \(dest)?",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .search:
             guard let category = params.category, !category.isEmpty else {
-                return "Search category is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Search category is missing.",
+                    technicalReason: "category parameter is null or empty",
+                    resultingEntityId: nil
+                )
             }
             viewModel.destinationQuery = category
             viewModel.searchDestinations()
             viewModel.selectSection(.map)
-            return "Searching for \(category) near you."
+            return AssistantToolResult(
+                status: .started,
+                userFacingMessage: "Searching for \(category) nearby.",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .call:
             guard let name = params.name, !name.isEmpty else {
-                return "Contact name is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Contact name is missing.",
+                    technicalReason: "name parameter is null or empty",
+                    resultingEntityId: nil
+                )
             }
             
-            // Search contact locally
             let matches = viewModel.nativeContacts.filter { $0.displayName.localizedCaseInsensitiveContains(name) }
+            
+            // Store matched contacts in AI coordinator's context for follow-up selection!
+            viewModel.aiCoordinator.conversationalContext.lastMatchedContacts = matches
+            
             if matches.isEmpty {
                 if let number = params.number, !number.isEmpty {
-                    let action = { self.viewModel.call(number: number) }
+                    let action = { [weak self] in
+                        guard let self = self else { return }
+                        self.viewModel.call(number: number)
+                    }
                     onRequireConfirmation("Call \(name) at \(number)?", action)
-                    return "Dialing \(number)."
+                    return AssistantToolResult(
+                        status: .awaitingConfirmation,
+                        userFacingMessage: "Open phone dialer to call \(name) at \(number)?",
+                        technicalReason: nil,
+                        resultingEntityId: nil
+                    )
                 }
-                return "No contacts matched \(name) in your directory."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "No contacts matched '\(name)' in your directory.",
+                    technicalReason: "contacts search returned empty list",
+                    resultingEntityId: nil
+                )
             } else if matches.count > 1 {
-                // Ambiguous contacts require confirmation
-                let match = matches.first!
-                let number = match.phoneNumbers.first?.number ?? ""
-                let action = { self.viewModel.call(number: number, contactId: match.id) }
-                onRequireConfirmation("Multiple matches found. Call \(match.displayName) (\(number))?", action)
-                return "Found multiple matches. Would you like to call \(match.displayName)?"
+                let matchesList = matches.map { $0.displayName }.joined(separator: ", ")
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Multiple contacts matched '\(name)': \(matchesList). Please be more specific.",
+                    technicalReason: "multiple contacts matched",
+                    resultingEntityId: nil
+                )
             } else {
                 let match = matches.first!
-                let number = match.phoneNumbers.first?.number ?? ""
-                let action = { self.viewModel.call(number: number, contactId: match.id) }
-                onRequireConfirmation("Call \(match.displayName) (\(number))?", action)
-                return "Preparing call to \(match.displayName)."
+                
+                // Check if contact has multiple phone numbers
+                if match.phoneNumbers.count > 1 {
+                    let numbersList = match.phoneNumbers.map { "\($0.label): \($0.number)" }.joined(separator: ", ")
+                    return AssistantToolResult(
+                        status: .failed,
+                        userFacingMessage: "\(match.displayName) has multiple numbers: \(numbersList). Please specify which label (e.g. mobile or work) to call.",
+                        technicalReason: "multiple numbers for contact",
+                        resultingEntityId: match.id
+                    )
+                }
+                
+                guard let phone = match.phoneNumbers.first?.number else {
+                    return AssistantToolResult(
+                        status: .failed,
+                        userFacingMessage: "\(match.displayName) has no phone numbers saved.",
+                        technicalReason: "no phone numbers found",
+                        resultingEntityId: match.id
+                    )
+                }
+                
+                let action = { [weak self] in
+                    guard let self = self else { return }
+                    self.viewModel.call(number: phone, contactId: match.id)
+                }
+                onRequireConfirmation("Opening phone dialer to call \(match.displayName) (\(phone))?", action)
+                return AssistantToolResult(
+                    status: .awaitingConfirmation,
+                    userFacingMessage: "Opening phone dialer to call \(match.displayName) (\(phone))?",
+                    technicalReason: nil,
+                    resultingEntityId: match.id
+                )
             }
 
         case .savePlace:
             guard let placeName = params.name, !placeName.isEmpty,
                   let labelStr = params.label,
                   let coord = viewModel.currentCoordinate else {
-                return "Place name or label is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Place name or label is missing.",
+                    technicalReason: "missing required parameters or GPS coordinates",
+                    resultingEntityId: nil
+                )
             }
             let label: SavedPlaceLabel = switch labelStr.lowercased() {
             case "home": .home
@@ -79,73 +158,88 @@ final class AssistantToolExecutor {
             case "college": .college
             default: .custom
             }
-            let action = {
+            let action = { [weak self] in
+                guard let self = self else { return }
                 self.viewModel.savePlace(name: placeName, address: "Current Location", coordinate: coord, label: label)
             }
             onRequireConfirmation("Save your current location as \(placeName) (\(labelStr))?", action)
-            return "Saving current location as \(placeName)."
+            return AssistantToolResult(
+                status: .awaitingConfirmation,
+                userFacingMessage: "Save current location as \(placeName)?",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .showParking:
             viewModel.navigateToParking()
             viewModel.selectSection(.map)
-            return "Showing your recorded parking location."
+            return AssistantToolResult(
+                status: .completed,
+                userFacingMessage: "Showing recorded parking location.",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .showTrips:
+            // Open the actual trips history sheet
+            viewModel.showTripHistory = true
             viewModel.selectSection(.map)
-            return "Showing recorded trip logs."
+            return AssistantToolResult(
+                status: .completed,
+                userFacingMessage: "Showing recorded trip logs.",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .avoidRoad:
             guard let road = params.roadName, !road.isEmpty else {
-                return "Road name is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Road name is missing.",
+                    technicalReason: "roadName is empty",
+                    resultingEntityId: nil
+                )
             }
-            let action = {
+            let action = { [weak self] in
+                guard let self = self else { return }
                 self.viewModel.avoidRoad(road)
             }
             onRequireConfirmation("Avoid \(road) in trip planning?", action)
-            return "Adding \(road) to avoided roads."
+            return AssistantToolResult(
+                status: .awaitingConfirmation,
+                userFacingMessage: "Avoid \(road) in trip planning?",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
 
         case .preferRoad:
             guard let road = params.roadName, !road.isEmpty else {
-                return "Road name is missing."
+                return AssistantToolResult(
+                    status: .failed,
+                    userFacingMessage: "Road name is missing.",
+                    technicalReason: "roadName is empty",
+                    resultingEntityId: nil
+                )
             }
-            let action = {
+            let action = { [weak self] in
+                guard let self = self else { return }
                 self.viewModel.preferRoad(road)
             }
             onRequireConfirmation("Prefer \(road) in trip planning?", action)
-            return "Adding \(road) to preferred roads."
+            return AssistantToolResult(
+                status: .awaitingConfirmation,
+                userFacingMessage: "Prefer \(road) in trip planning?",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
+
+        case .none:
+            return AssistantToolResult(
+                status: .completed,
+                userFacingMessage: "I parsed your request, but no action is needed.",
+                technicalReason: nil,
+                resultingEntityId: nil
+            )
         }
     }
-
-    enum ToolType: String {
-        case navigate = "navigate"
-        case search = "search"
-        case call = "call"
-        case savePlace = "save_place"
-        case showParking = "show_parking"
-        case showTrips = "show_trips"
-        case avoidRoad = "avoid_road"
-        case preferRoad = "prefer_road"
-    }
-}
-
-// Security validations
-struct AssistantToolCall: Codable {
-    let name: String
-    let parameters: AssistantToolParameters
-}
-
-struct AssistantToolParameters: Codable {
-    let destination: String?
-    let category: String?
-    let bias: String?
-    let name: String?
-    let number: String?
-    let label: String?
-    let roadName: String?
-}
-
-struct AssistantModelResponse: Codable {
-    let explanation: String
-    let toolCall: AssistantToolCall?
-    let needsConfirmation: Bool?
 }

@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 
+@MainActor
 final class AssistantSpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var isSpeaking = false
 
@@ -21,9 +22,7 @@ final class AssistantSpeechService: NSObject, ObservableObject, AVSpeechSynthesi
         utterance.rate = 0.48 // Adjustable speaking rate
         utterance.pitchMultiplier = 1.0
 
-        DispatchQueue.main.async { [weak self] in
-            self?.isSpeaking = true
-        }
+        isSpeaking = true
         synthesizer.speak(utterance)
     }
 
@@ -31,24 +30,27 @@ final class AssistantSpeechService: NSObject, ObservableObject, AVSpeechSynthesi
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
-        DispatchQueue.main.async { [weak self] in
-            self?.isSpeaking = false
-        }
+        isSpeaking = false
     }
 }
 
 extension AssistantSpeechService {
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.isSpeaking = false
-            self.onSpeechFinished?()
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didFinish utterance: AVSpeechUtterance
+    ) {
+        Task { @MainActor in
+            isSpeaking = false
+            onSpeechFinished?()
         }
     }
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async { [weak self] in
-            self?.isSpeaking = false
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        Task { @MainActor in
+            isSpeaking = false
         }
     }
 }

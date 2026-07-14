@@ -1,10 +1,15 @@
 import Foundation
 import Security
 
-struct KeychainHelper {
+final class KeychainHelper: Sendable {
     static let shared = KeychainHelper()
     private let service = "com.ashutoshsingh.kalpanadrive.nvidia-api"
     private let keyAccount = "nvidia-api-key"
+
+    var localOnlyMode: Bool {
+        get { UserDefaults.standard.bool(forKey: "com.ashutoshsingh.kalpanadrive.localOnlyMode") }
+        set { UserDefaults.standard.set(newValue, forKey: "com.ashutoshsingh.kalpanadrive.localOnlyMode") }
+    }
 
     func saveApiKey(_ key: String) -> Bool {
         guard let data = key.data(using: .utf8) else { return false }
@@ -23,7 +28,7 @@ struct KeychainHelper {
         return status == errSecSuccess
     }
 
-    func loadApiKey() -> String? {
+    func loadKeychainApiKey() -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -39,6 +44,11 @@ struct KeychainHelper {
             return String(data: data, encoding: .utf8)
         }
         return nil
+    }
+
+    func loadApiKey() -> String? {
+        if localOnlyMode { return nil }
+        return loadKeychainApiKey()
     }
 
     func deleteApiKey() {

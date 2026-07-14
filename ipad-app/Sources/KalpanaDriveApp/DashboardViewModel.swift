@@ -55,6 +55,7 @@ final class DashboardViewModel: ObservableObject {
     // Trip recording
     @Published private(set) var isTripRecording = false
     @Published private(set) var trips: [TripLog] = []
+    @Published var showTripHistory = false
 
     // Parking
     @Published private(set) var parkedLocation: ParkedLocation?
@@ -115,6 +116,10 @@ final class DashboardViewModel: ObservableObject {
 
     var currentCoordinate: CLLocationCoordinate2D? {
         locationService.coordinate
+    }
+
+    var courseDegrees: Double? {
+        locationService.courseDegrees
     }
 
     var nativeFavourites: [KalpanaContact] {

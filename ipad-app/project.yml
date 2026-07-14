@@ -56,6 +56,7 @@ targets:
         DEVELOPMENT_TEAM: "87V22WR64U"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_STRICT_CONCURRENCY: complete
+        DEFINES_MODULE: YES
     scheme:
       testTargets:
         - KalpanaDriveCoreTests
@@ -68,8 +69,11 @@ targets:
       - path: Tests/KalpanaDriveCoreXCTests
     dependencies:
       - target: KalpanaDriveCore
+      - target: KalpanaDriveApp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ashutoshsingh.kalpanadrive.coretests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_STRICT_CONCURRENCY: complete
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Kalpana Drive.app/Kalpana Drive
+        BUNDLE_LOADER: $(TEST_HOST)

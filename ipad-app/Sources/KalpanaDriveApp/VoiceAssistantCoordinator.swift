@@ -10,50 +10,39 @@ enum VoiceAssistantState: Equatable {
     case detectingSpeech
     case transcribing
     case thinking
-    case awaitingConfirmation(String, () -> Void)
-    case speaking(String)
+    case awaitingConfirmation
+    case speaking
     case interrupted
     case unavailable(String)
     case failed(String)
-
-    static func == (lhs: VoiceAssistantState, rhs: VoiceAssistantState) -> Bool {
-        switch (lhs, rhs) {
-        case (.idle, .idle): return true
-        case (.requestingPermission, .requestingPermission): return true
-        case (.listening, .listening): return true
-        case (.detectingSpeech, .detectingSpeech): return true
-        case (.transcribing, .transcribing): return true
-        case (.thinking, .thinking): return true
-        case (.interrupted, .interrupted): return true
-        case (.awaitingConfirmation(let a, _), .awaitingConfirmation(let b, _)): return a == b
-        case (.speaking(let a), .speaking(let b)): return a == b
-        case (.unavailable(let a), .unavailable(let b)): return a == b
-        case (.failed(let a), .failed(let b)): return a == b
-        default: return false
-        }
-    }
 }
 
 @MainActor
 final class VoiceAssistantCoordinator: ObservableObject {
-    @Published var state: VoiceAssistantState = .idle
+    @Published var state: VoiceAssistantState = .idle {
+        willSet {
+            #if DEBUG
+            validateTransition(from: state, to: newValue)
+            #endif
+        }
+    }
     @Published var partialTranscript: String = ""
     @Published var finalTranscript: String = ""
     @Published var assistantResponse: String = ""
     @Published var micLevel: Float = 0.0
+    @Published var pendingAction: AssistantPendingAction?
 
     let micPermission = MicrophonePermissionService()
     let speechRecognition = SpeechRecognitionService()
     let vad = VoiceActivityDetector()
-    let conversationStore = AssistantConversationStore()
     let speechService = AssistantSpeechService()
     
     private let browser: YouTubeMusicBrowserController
     private var musicCoordinator: MusicSessionCoordinator?
-    private var toolExecutor: AssistantToolExecutor?
+    private var viewModel: DashboardViewModel?
 
     private let audioEngine = AVAudioEngine()
-    private var isEngineConfigured = false
+    private var hasSubmitted = false
 
     init(browser: YouTubeMusicBrowserController) {
         self.browser = browser
@@ -67,7 +56,7 @@ final class VoiceAssistantCoordinator: ObservableObject {
     }
 
     func setViewModel(_ viewModel: DashboardViewModel) {
-        self.toolExecutor = AssistantToolExecutor(viewModel: viewModel)
+        self.viewModel = viewModel
     }
 
     func toggleListening() {
@@ -79,7 +68,7 @@ final class VoiceAssistantCoordinator: ObservableObject {
     }
 
     func startListening() {
-        guard state == .idle || state == .interrupted || state == .speaking("") else { return }
+        guard state == .idle || state == .interrupted || state == .speaking else { return }
 
         state = .requestingPermission
         Task {
@@ -102,16 +91,20 @@ final class VoiceAssistantCoordinator: ObservableObject {
         
         partialTranscript = ""
         finalTranscript = ""
+        hasSubmitted = false
         state = .listening
 
         do {
             try configureAudioEngine()
-            try speechRecognition.startRecognition(
-                audioEngine: audioEngine,
+            try speechRecognition.beginRecognition(
                 onTranscript: { [weak self] text, isFinal in
                     guard let self else { return }
                     self.partialTranscript = text
                     self.state = .detectingSpeech
+                    
+                    if isFinal {
+                        self.stopListeningAndProcess(withTranscript: text)
+                    }
                 },
                 onError: { [weak self] error in
                     guard let self else { return }
@@ -130,13 +123,16 @@ final class VoiceAssistantCoordinator: ObservableObject {
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
+            
+            // Forward buffer to SpeechRecognitionService and VoiceActivityDetector
             Task { @MainActor in
+                self.speechRecognition.append(buffer)
                 self.micLevel = self.vad.audioLevel
 
                 // Handle barge-in (interruption during TTS)
-                if case .speaking = self.state {
+                if self.state == .speaking {
                     let rms = self.calculateRMS(buffer)
-                    if rms > 0.08 { // Decisive voice signal from user
+                    if rms > 0.12 { // Calibrated voice threshold
                         self.speechService.stop()
                         self.state = .interrupted
                         self.beginListeningPipeline()
@@ -146,8 +142,8 @@ final class VoiceAssistantCoordinator: ObservableObject {
 
                 if self.state == .listening || self.state == .detectingSpeech {
                     let isSilent = self.vad.analyzeBuffer(buffer)
-                    if isSilent {
-                        self.stopListeningAndProcess()
+                    if isSilent && !self.partialTranscript.isEmpty {
+                        self.stopListeningAndProcess(withTranscript: self.partialTranscript)
                     }
                 }
             }
@@ -155,6 +151,13 @@ final class VoiceAssistantCoordinator: ObservableObject {
 
         audioEngine.prepare()
         try audioEngine.start()
+    }
+
+    private func stopAudioEngine() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
     }
 
     private func calculateRMS(_ buffer: AVAudioPCMBuffer) -> Float {
@@ -171,9 +174,14 @@ final class VoiceAssistantCoordinator: ObservableObject {
         return sqrt(sumSquares / Float(frameLength * channelCount))
     }
 
-    private func stopListeningAndProcess() {
-        speechRecognition.stopRecognition(audioEngine: audioEngine)
-        finalTranscript = partialTranscript
+    private func stopListeningAndProcess(withTranscript transcript: String) {
+        guard !hasSubmitted else { return }
+        hasSubmitted = true
+        
+        stopAudioEngine()
+        speechRecognition.finishRecognition()
+        
+        finalTranscript = transcript
         state = .thinking
 
         guard !finalTranscript.isEmpty else {
@@ -182,159 +190,97 @@ final class VoiceAssistantCoordinator: ObservableObject {
             return
         }
 
-        conversationStore.addMessage(role: "user", content: finalTranscript)
-        
-        // Execute AI parsing
+        // Add user query to context history
+        viewModel?.aiCoordinator.conversationHistory.append(AICoordinator.ChatMessage(role: "user", content: finalTranscript))
+
+        // Execute AI parsing on the unified AICoordinator
         Task {
-            if let apiKey = KeychainHelper.shared.loadApiKey(), !apiKey.isEmpty {
-                await processWithNvidiaNIM(finalTranscript)
-            } else {
-                processWithLocalFallback(finalTranscript)
-            }
+            guard let viewModel = self.viewModel else { return }
+            let response = await viewModel.aiCoordinator.processQuery(finalTranscript, viewModel: viewModel, isSpoken: true)
+            handleAIResponse(response)
         }
     }
 
-    private func processWithNvidiaNIM(_ query: String) async {
-        let endpoint = "https://integrate.api.nvidia.com/v1/chat/completions"
-        let modelName = "meta/llama-3.1-8b-instruct"
-        
-        let systemPrompt = """
-        You are Kalpana Voice Assistant. Parse the user request.
-        Respond with a JSON block:
-        {
-          "explanation": "Spoken text",
-          "toolCall": {
-            "name": "navigate" | "search" | "call" | "save_place" | "show_parking" | "show_trips" | "avoid_road" | "prefer_road",
-            "parameters": { ... }
-          },
-          "needsConfirmation": true
-        }
-        """
+    private func handleAIResponse(_ text: String) {
+        assistantResponse = text
 
-        var request = URLRequest(url: URL(string: endpoint)!)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(KeychainHelper.shared.loadApiKey() ?? "")", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let messages = [
-            ["role": "system", "content": systemPrompt],
-            ["role": "user", "content": query]
-        ]
-        let body: [String: Any] = ["model": modelName, "messages": messages, "temperature": 0.1]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                processWithLocalFallback(query)
-                return
-            }
-
-            let modelResponse = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-            if let firstMessage = modelResponse.choices.first?.message.content {
-                var clean = firstMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-                if clean.hasPrefix("```") {
-                    clean = clean.components(separatedBy: "\n").filter { !$0.hasPrefix("```") }.joined(separator: "\n")
+        // Check if there is a pending action on AICoordinator
+        if let pending = viewModel?.aiCoordinator.pendingAction {
+            self.pendingAction = AssistantPendingAction(
+                title: pending.title,
+                message: pending.message,
+                onConfirm: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel?.aiCoordinator.confirmAction()
+                    self.state = .idle
+                    self.musicCoordinator?.restoreAfterVoiceDeactivation()
+                },
+                onReject: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel?.aiCoordinator.rejectAction()
+                    self.state = .idle
+                    self.musicCoordinator?.restoreAfterVoiceDeactivation()
                 }
-                if let decodedResult = try? JSONDecoder().decode(AssistantModelResponse.self, from: clean.data(using: .utf8)!) {
-                    handleAIResponse(decodedResult)
-                    return
-                }
-            }
-            processWithLocalFallback(query)
-        } catch {
-            processWithLocalFallback(query)
-        }
-    }
-
-    private func processWithLocalFallback(_ query: String) {
-        let clean = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        var explanation = "I'm not sure how to help with that request."
-        var toolCall: AssistantToolCall? = nil
-        var needsConfirmation = false
-
-        if clean.contains("take me to") || clean.contains("navigate to") || clean.contains("go to") {
-            let dest = query.replacingOccurrences(of: "take me to", with: "", options: .caseInsensitive, range: nil)
-                .replacingOccurrences(of: "navigate to", with: "", options: .caseInsensitive, range: nil)
-                .replacingOccurrences(of: "go to", with: "", options: .caseInsensitive, range: nil)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            explanation = "Calculating route to \(dest)."
-            toolCall = AssistantToolCall(name: "navigate", parameters: AssistantToolParameters(destination: dest, category: nil, bias: nil, name: nil, number: nil, label: nil, roadName: nil))
-            needsConfirmation = true
-        } else if clean.contains("cng") {
-            explanation = "Searching for CNG fuel stations."
-            toolCall = AssistantToolCall(name: "search", parameters: AssistantToolParameters(destination: nil, category: "CNG", bias: nil, name: nil, number: nil, label: nil, roadName: nil))
-        } else if clean.contains("call") {
-            let name = query.replacingOccurrences(of: "call", with: "", options: .caseInsensitive, range: nil).trimmingCharacters(in: .whitespacesAndNewlines)
-            explanation = "Calling \(name)."
-            toolCall = AssistantToolCall(name: "call", parameters: AssistantToolParameters(destination: nil, category: nil, bias: nil, name: name, number: nil, label: nil, roadName: nil))
-            needsConfirmation = true
-        } else if clean.contains("parking") {
-            explanation = "Displaying your car's parking location."
-            toolCall = AssistantToolCall(name: "show_parking", parameters: AssistantToolParameters(destination: nil, category: nil, bias: nil, name: nil, number: nil, label: nil, roadName: nil))
-        }
-
-        handleAIResponse(AssistantModelResponse(explanation: explanation, toolCall: toolCall, needsConfirmation: needsConfirmation))
-    }
-
-    private func handleAIResponse(_ res: AssistantModelResponse) {
-        assistantResponse = res.explanation
-        conversationStore.addMessage(role: "assistant", content: res.explanation)
-
-        if let tool = res.toolCall {
-            if res.needsConfirmation == true, let executor = toolExecutor {
-                state = .awaitingConfirmation(res.explanation) {
-                    _ = executor.execute(toolCall: tool) { _, confirmAction in
-                        confirmAction()
-                    }
-                }
-            } else if let executor = toolExecutor {
-                let statusMsg = executor.execute(toolCall: tool) { _, confirmAction in
-                    confirmAction()
-                }
-                speakResult(statusMsg)
-            }
+            )
+            state = .awaitingConfirmation
+            speakResult(pending.message)
         } else {
-            speakResult(res.explanation)
+            speakResult(text)
         }
     }
 
-    func confirmAction(action: @escaping () -> Void) {
-        action()
+    func confirmAction() {
+        pendingAction?.onConfirm()
+        pendingAction = nil
         state = .idle
         musicCoordinator?.restoreAfterVoiceDeactivation()
     }
 
     func rejectAction() {
+        pendingAction?.onReject()
+        pendingAction = nil
         state = .idle
         musicCoordinator?.restoreAfterVoiceDeactivation()
     }
 
     private func speakResult(_ text: String) {
-        state = .speaking(text)
+        state = .speaking
         speechService.speak(text, language: speechRecognition.selectedLanguage)
     }
 
     func cancelListening() {
-        speechRecognition.stopRecognition(audioEngine: audioEngine)
+        stopAudioEngine()
+        speechRecognition.cancelRecognition()
         speechService.stop()
+        pendingAction = nil
         state = .idle
         musicCoordinator?.restoreAfterVoiceDeactivation()
     }
 
     private func handleError(_ error: Error) {
+        stopAudioEngine()
+        speechRecognition.cancelRecognition()
         state = .failed(error.localizedDescription)
         musicCoordinator?.restoreAfterVoiceDeactivation()
     }
-}
 
-// NIM API structures
-struct ChatCompletionResponse: Codable {
-    struct Choice: Codable {
-        struct Message: Codable {
-            let content: String
+    #if DEBUG
+    private func validateTransition(from oldState: VoiceAssistantState, to newState: VoiceAssistantState) {
+        switch (oldState, newState) {
+        case (.idle, .requestingPermission),
+             (.requestingPermission, .listening), (.requestingPermission, .unavailable(_)),
+             (.listening, .detectingSpeech), (.listening, .thinking), (.listening, .idle),
+             (.detectingSpeech, .thinking), (.detectingSpeech, .idle),
+             (.thinking, .awaitingConfirmation), (.thinking, .speaking), (.thinking, .idle),
+             (.awaitingConfirmation, .idle),
+             (.speaking, .idle), (.speaking, .interrupted),
+             (.interrupted, .listening), (.interrupted, .idle),
+             (.failed(_), .idle), (.unavailable(_), .idle),
+             (_, .idle), (_, .failed(_)):
+            break
+        default:
+            print("VoiceAssistantState: transition from \(oldState) to \(newState)")
         }
-        let message: Message
     }
-    let choices: [Choice]
+    #endif
 }
