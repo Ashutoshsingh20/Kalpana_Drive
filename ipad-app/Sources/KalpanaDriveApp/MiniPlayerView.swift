@@ -69,10 +69,16 @@ struct MiniPlayerView: View {
                 .padding(.trailing, 8)
             }
             .padding(12)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+            .backgroundModifier()
             .frame(maxWidth: 420)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
         // No fallback banner — if nothing is playing, mini-player is invisible
+    }
+}
+
+private extension View {
+    func backgroundModifier() -> some View {
+        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 }

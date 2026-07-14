@@ -897,10 +897,10 @@ struct NightDriveArt: View {
 
             VStack(spacing: 1) {
                 Text("NIGHT")
-                    .font(.system(size: 7, weight: .bold, design: .sansSerif))
+                    .font(.system(size: 7, weight: .bold, design: .default))
                     .foregroundColor(.white.opacity(0.8))
                 Text("DRIVE")
-                    .font(.system(size: 5, weight: .regular, design: .sansSerif))
+                    .font(.system(size: 5, weight: .regular, design: .default))
                     .foregroundColor(.white.opacity(0.5))
             }
             .position(x: 32, y: 20)
@@ -2023,13 +2023,25 @@ struct LiquidGlassBackground: View {
     private var isDark: Bool { appearance == .night }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1/30)) { ctx in
-            MeshGradient(
-                width: 3,
-                height: 3,
-                points: animatedPoints(at: ctx.date.timeIntervalSinceReferenceDate),
-                colors: animatedColors(at: ctx.date.timeIntervalSinceReferenceDate)
-            )
+        Group {
+            if #available(iOS 18.0, *) {
+                TimelineView(.animation(minimumInterval: 1/30)) { ctx in
+                    MeshGradient(
+                        width: 3,
+                        height: 3,
+                        points: animatedPoints(at: ctx.date.timeIntervalSinceReferenceDate),
+                        colors: animatedColors(at: ctx.date.timeIntervalSinceReferenceDate)
+                    )
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1/30)) { ctx in
+                    LinearGradient(
+                        colors: animatedColors(at: ctx.date.timeIntervalSinceReferenceDate),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
         }
         .ignoresSafeArea()
     }
@@ -2082,5 +2094,19 @@ extension View {
             .zIndex(isVisible ? 1 : 0)
             .allowsHitTesting(isVisible)
             .accessibilityHidden(!isVisible)
+    }
+}
+
+// Stub structures to compile iOS 26+ .glassEffect API on older SDK targets (iOS 17+)
+struct GlassEffectStyleStub {
+    static let regular = GlassEffectStyleStub()
+    func tint(_ color: Color) -> GlassEffectStyleStub {
+        self
+    }
+}
+
+extension View {
+    func glassEffect<S: Shape>(_ style: GlassEffectStyleStub, in shape: S) -> some View {
+        self.background(.ultraThinMaterial, in: shape)
     }
 }
